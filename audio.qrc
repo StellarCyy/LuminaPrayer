@@ -1,0 +1,15 @@
+<RCC>
+    <qresource prefix="/audio">
+        <file alias="AreYouHere.mp3">audio/AreYouHere.mp3</file>
+        <file alias="birthdaysong.mp3">audio/birthdaysong.mp3</file>
+        <file alias="CrytoHer.mp3">audio/CrytoHer.mp3</file>
+        <file alias="DoEverything.mp3">audio/DoEverything.mp3</file>
+        <file alias="IImportant.mp3">audio/IImportant.mp3</file>
+        <file alias="IVeryAnnoyed.mp3">audio/IVeryAnnoyed.mp3</file>
+        <file alias="SorryUncomfortable.mp3">audio/SorryUncomfortable.mp3</file>
+        <file alias="UndergotooMuch.mp3">audio/UndergotooMuch.mp3</file>
+        <file alias="WillbeBetter.mp3">audio/WillbeBetter.mp3</file>
+        <file alias="angry.mp3">audio/angry.mp3</file>
+        <file alias="NormalSinging1.mp3">audio/NormalSinging1.mp3</file>
+    </qresource>
+</RCC>

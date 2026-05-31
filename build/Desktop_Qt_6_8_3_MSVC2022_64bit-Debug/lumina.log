@@ -1,0 +1,64 @@
+2026-04-05T19:27:03.911 [INF] === LuminaPrayer started ===
+2026-04-05T19:27:03.917 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-05T19:27:15.791 [INF] === LuminaPrayer exiting normally ===
+2026-04-05T19:27:34.268 [INF] === LuminaPrayer started ===
+2026-04-05T19:27:34.272 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-05T19:27:39.142 [INF] === LuminaPrayer exiting normally ===
+2026-04-05T19:27:49.537 [INF] === LuminaPrayer started ===
+2026-04-05T19:27:49.541 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-05T19:29:00.506 [INF] === LuminaPrayer exiting normally ===
+2026-04-05T19:29:21.315 [INF] === LuminaPrayer started ===
+2026-04-05T19:29:21.327 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-05T19:29:36.903 [INF] === LuminaPrayer exiting normally ===
+2026-04-05T19:29:47.251 [INF] === LuminaPrayer started ===
+2026-04-05T19:29:47.262 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-05T19:29:59.044 [INF] === LuminaPrayer exiting normally ===
+2026-04-05T19:30:10.463 [INF] === LuminaPrayer started ===
+2026-04-05T19:30:10.466 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-05T19:30:28.324 [INF] === LuminaPrayer exiting normally ===
+2026-04-05T19:30:39.301 [INF] === LuminaPrayer started ===
+2026-04-05T19:30:39.315 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-05T19:30:47.389 [INF] === LuminaPrayer exiting normally ===
+2026-04-05T19:30:58.513 [INF] === LuminaPrayer started ===
+2026-04-05T19:30:58.525 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-05T19:31:09.934 [INF] === LuminaPrayer exiting normally ===
+2026-04-05T19:31:21.479 [INF] === LuminaPrayer started ===
+2026-04-05T19:31:21.481 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-05T19:32:02.954 [INF] === LuminaPrayer exiting normally ===
+2026-04-26T16:32:06.514 [INF] === LuminaPrayer started ===
+2026-04-26T16:32:06.520 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-26T16:32:12.024 [WRN] QWindowsWindow::setGeometry: Unable to set geometry 180x45+1413+536 (frame: 202x101+1402+491) on QWidgetWindow/"QInputDialogClassWindow" on "\\.\DISPLAY1". Resulting geometry: 267x141+1413+536 (frame: 289x197+1402+491) margins: 11, 45, 11, 11 minimum size: 178x94 maximum size: 524287x94 MINMAXINFO(maxSize=POINT(x=0, y=0), maxpos=POINT(x=0, y=0), maxtrack=POINT(x=786453, y=197), mintrack=POINT(x=289, y=197)))
+2026-04-26T16:32:34.938 [INF] === LuminaPrayer exiting normally ===
+2026-04-27T01:06:00.006 [INF] === LuminaPrayer started ===
+2026-04-27T01:06:00.012 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-27T01:07:03.584 [INF] === LuminaPrayer exiting normally ===
+2026-04-27T01:08:16.153 [INF] === LuminaPrayer started ===
+2026-04-27T01:08:16.156 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-27T01:10:10.777 [INF] === LuminaPrayer exiting normally ===
+2026-04-27T01:11:34.973 [INF] === LuminaPrayer started ===
+2026-04-27T01:11:34.977 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-27T01:11:49.316 [INF] === LuminaPrayer exiting normally ===
+2026-04-27T01:12:07.409 [INF] === LuminaPrayer started ===
+2026-04-27T01:12:07.417 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-27T01:12:19.200 [INF] === LuminaPrayer exiting normally ===
+2026-04-27T01:12:32.824 [INF] === LuminaPrayer started ===
+2026-04-27T01:12:32.828 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-27T01:13:08.656 [INF] === LuminaPrayer exiting normally ===
+2026-04-27T01:13:13.092 [INF] === LuminaPrayer started ===
+2026-04-27T01:13:13.098 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-27T01:13:22.378 [INF] === LuminaPrayer exiting normally ===
+2026-04-27T01:17:38.724 [INF] === LuminaPrayer started ===
+2026-04-27T01:17:38.729 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-27T01:17:50.856 [INF] === LuminaPrayer exiting normally ===
+2026-04-27T22:05:04.372 [INF] === LuminaPrayer started ===
+2026-04-27T22:05:04.384 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-27T22:05:50.206 [INF] === LuminaPrayer exiting normally ===
+2026-04-27T22:26:00.236 [INF] === LuminaPrayer started ===
+2026-04-27T22:26:00.239 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-27T22:26:26.799 [INF] === LuminaPrayer exiting normally ===
+2026-04-27T22:30:32.324 [INF] === LuminaPrayer started ===
+2026-04-27T22:30:32.332 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-27T22:32:30.353 [INF] === LuminaPrayer exiting normally ===
+2026-04-27T22:40:10.633 [INF] === LuminaPrayer started ===
+2026-04-27T22:40:10.638 [DBG] [ProfileManager] Loaded profile: "Solyn" v 1 from "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/character.json"
+2026-04-27T22:51:06.908 [INF] === LuminaPrayer exiting normally ===

@@ -1,0 +1,142 @@
+{
+  "meta": {
+    "name": "Solyn",
+    "version": 1
+  },
+  "window": {
+    "widget_size": 500,
+    "fist_widget_size": 360,
+    "fist_sprite_size": 100
+  },
+  "sprites": {
+    "role_display_size": 200,
+    "light_symbol": ":/lightsymbol1/lightsymbol0.png",
+    "fist": ":/fist1/fist0.png",
+    "icon": ":/icon/icon.png",
+    "forms": {
+      "primary": {
+        "stand":      { "pattern": ":/character1/solyn%d.png",            "count": 1 },
+        "move_left":  { "pattern": ":/move1/solynmoveleft%d.png",         "count": 1 },
+        "move_right": { "pattern": ":/move1/solynmoveright%d.png",        "count": 1 },
+        "sleeping":   { "pattern": ":/sleeping1/solynsleeping%d.png",     "count": 1 },
+        "angry":      { "pattern": ":/characterangry1/solynangry%d.png",  "count": 1 },
+        "sitting_1":  { "pattern": ":/character2/solyn2-%d.png",          "count": 1 },
+        "sitting_2":  { "pattern": ":/character3/solyn3-%d.png",          "count": 1 }
+      },
+      "alternate": {
+        "stand":      { "pattern": ":/character4/stardaughter%d.png",             "count": 1 },
+        "move_left":  { "pattern": ":/move1/stardaughtermoveleft%d.png",          "count": 1 },
+        "move_right": { "pattern": ":/move1/stardaughtermoveright%d.png",         "count": 1 },
+        "sleeping":   { "pattern": ":/sleeping1/stardaughtersleeping%d.png",      "count": 1 },
+        "angry":      { "pattern": ":/characterangry1/stardaughterangry%d.png",   "count": 1 }
+      }
+    },
+    "hints": {
+      "text_ok":              ":/text/text_ok.png",
+      "text_can_sing":        ":/text/text_can_sing.png",
+      "text_go_to_sleep":     ":/text/text_go_to_sleep.png",
+      "text_start_listening": ":/text/text_start_listening.png",
+      "text_angry":           ":/text/text_angry1.png"
+    }
+  },
+  "audio": {
+    "angry":   "qrc:/audio/angry.mp3",
+    "humming": "qrc:/audio/NormalSinging1.mp3",
+    "voice_menu": [
+      { "label": "你在吗？",                                "path": "qrc:/audio/AreYouHere.mp3" },
+      { "label": "对于你，我很重要吗？",                      "path": "qrc:/audio/IImportant.mp3" },
+      { "label": "向她哭诉",                                "path": "qrc:/audio/CrytoHer.mp3" },
+      { "label": "对不起，我不太舒服，你不会嫌弃我吧？",       "path": "qrc:/audio/SorryUncomfortable.mp3" },
+      { "label": "我以前受过太多的伤害",                      "path": "qrc:/audio/UndergotooMuch.mp3" },
+      { "label": "我很烦，很麻烦吗？",                       "path": "qrc:/audio/IVeryAnnoyed.mp3" },
+      { "label": "我做出这样的决定，你会讨厌我吗？",           "path": "qrc:/audio/DoEverything.mp3" },
+      { "label": "未来会更好吗？",                           "path": "qrc:/audio/WillbeBetter.mp3" },
+      { "label": "祝我生日快乐",                             "path": "qrc:/audio/birthdaysong.mp3" }
+    ]
+  },
+  "animation": {
+    "frame_interval_ms": 100,
+    "light_intro_start": 130,
+    "light_intro_end": 400,
+    "light_intro_size_duration_ms": 1000,
+    "light_intro_fade_start_opacity": 0.7,
+    "light_intro_fade_duration_ms": 500,
+    "exit_light_start": 400,
+    "exit_fade_in_duration_ms": 800,
+    "exit_shrink_duration_ms": 1000,
+    "exit_hide_character_threshold": 300,
+    "form_switch_halo_start": 90,
+    "form_switch_halo_end": 510,
+    "form_switch_expand_duration_ms": 1000,
+    "form_switch_flash_opacity": 0.48,
+    "form_switch_flash_duration_ms": 220,
+    "form_switch_shrink_duration_ms": 1000,
+    "fist_halo_end": 200,
+    "fist_halo_duration_ms": 600,
+    "fist_track_interval_ms": 16,
+    "fist_acceleration": 4.0,
+    "fist_snap_distance": 30.0,
+    "fist_fade_duration_ms": 200,
+    "fist_pullback_factor": 0.1,
+    "fist_track_start_delay_ms": 200,
+    "static_halo_fade_duration_ms": 500
+  },
+  "behavior": {
+    "move_speed_px_per_sec": 160.0,
+    "move_min_duration_ms": 1400,
+    "move_max_duration_ms": 12000,
+    "stand_to_move_wait_ms": 25000,
+    "move_to_sleep_wait_ms": 180000,
+    "move_to_sit_wait_ms": 25000,
+    "move_to_playful_wait_ms": 30000,
+    "sit_detection_interval_ms": 10000,
+    "sit_trigger_chance_percent": 30,
+    "sit_mode_duration_ms": 30000,
+    "sit_monitor_interval_ms": 100,
+    "sit_fly_duration_ms": 1500,
+    "playful_detection_interval_ms": 10000,
+    "playful_trigger_chance_percent": 30,
+    "playful_mode_duration_ms": 30000,
+    "playmate_min_spacing_px": 120,
+    "playmate_speed_scale": 2.0,
+    "playmate_accel_scale": 5.0,
+    "playmate_chase_interval_ms": 16,
+    "angry_click_threshold": 10,
+    "angry_duration_ms": 2000,
+    "angry_spawn_offset_px": 200,
+    "click_reset_timeout_ms": 2000,
+    "stand_shake_duration_ms": 500,
+    "stand_shake_offset_px": 5,
+    "stand_shake_min_jumps": 5,
+    "stand_shake_max_jumps": 9,
+    "humming_min_interval_ms": 45000,
+    "humming_max_interval_ms": 90000,
+    "walk_restart_delay_ms": 500,
+    "hint_display_duration_ms": 2000,
+    "clock_display_duration_ms": 10000,
+    "drag_click_threshold_px": 20.0,
+    "auto_sing_enabled": true,
+    "use_alternate_form": false
+  },
+  "breath_effect": {
+    "enabled": true,
+    "poll_interval_ms": 100,
+    "render_fps": 24,
+    "base_speed": 0.5,
+    "cpu_scale_factor": 0.5,
+    "min_alpha_factor": 0.7,
+    "base_halo_size": 200,
+    "warm_tint_threshold": 0.8,
+    "warm_tint_color": [255, 153, 102],
+    "warm_tint_intensity": 0.3,
+    "force_swap_rb": false
+  },
+  "ui": {
+    "clock_font_family": "Consolas",
+    "clock_font_size": 30,
+    "clock_panel_color": [70, 130, 255, 95],
+    "clock_panel_radius": 18,
+    "clock_shadow_color": [15, 25, 60, 180],
+    "clock_text_color": [255, 225, 40, 255]
+  }
+}

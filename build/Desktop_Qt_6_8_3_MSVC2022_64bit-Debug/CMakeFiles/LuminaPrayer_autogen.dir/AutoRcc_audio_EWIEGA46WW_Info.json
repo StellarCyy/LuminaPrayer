@@ -1,0 +1,35 @@
+{
+	"BUILD_DIR" : "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/LuminaPrayer_autogen",
+	"CMAKE_BINARY_DIR" : "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug",
+	"CMAKE_CURRENT_BINARY_DIR" : "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug",
+	"CMAKE_CURRENT_SOURCE_DIR" : "D:/QtProject/LuminaPrayer",
+	"CMAKE_SOURCE_DIR" : "D:/QtProject/LuminaPrayer",
+	"CROSS_CONFIG" : false,
+	"GENERATOR" : "Ninja",
+	"INCLUDE_DIR" : "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/LuminaPrayer_autogen/include",
+	"INPUTS" : 
+	[
+		"D:/QtProject/LuminaPrayer/audio/WillbeBetter.mp3",
+		"D:/QtProject/LuminaPrayer/audio/DoEverything.mp3",
+		"D:/QtProject/LuminaPrayer/audio/UndergotooMuch.mp3",
+		"D:/QtProject/LuminaPrayer/audio/IImportant.mp3",
+		"D:/QtProject/LuminaPrayer/audio/birthdaysong.mp3",
+		"D:/QtProject/LuminaPrayer/audio/angry.mp3",
+		"D:/QtProject/LuminaPrayer/audio/CrytoHer.mp3",
+		"D:/QtProject/LuminaPrayer/audio/NormalSinging1.mp3",
+		"D:/QtProject/LuminaPrayer/audio/SorryUncomfortable.mp3",
+		"D:/QtProject/LuminaPrayer/audio/IVeryAnnoyed.mp3",
+		"D:/QtProject/LuminaPrayer/audio/AreYouHere.mp3"
+	],
+	"LOCK_FILE" : "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/CMakeFiles/LuminaPrayer_autogen.dir/AutoRcc_audio_EWIEGA46WW_Lock.lock",
+	"MULTI_CONFIG" : false,
+	"OPTIONS" : [ "--no-zstd", "-name", "audio" ],
+	"OUTPUT_CHECKSUM" : "EWIEGA46WW",
+	"OUTPUT_NAME" : "qrc_audio.cpp",
+	"RCC_EXECUTABLE" : "D:/software/Qt/6.8.3/msvc2022_64/bin/rcc.exe",
+	"RCC_LIST_OPTIONS" : [ "--list" ],
+	"SETTINGS_FILE" : "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/CMakeFiles/LuminaPrayer_autogen.dir/AutoRcc_audio_EWIEGA46WW_Used.txt",
+	"SOURCE" : "D:/QtProject/LuminaPrayer/audio.qrc",
+	"USE_BETTER_GRAPH" : true,
+	"VERBOSITY" : 0
+}

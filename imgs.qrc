@@ -1,0 +1,117 @@
+<RCC>
+    <qresource prefix="/character1">
+        <file alias="solyn0.png">img/character1/solyn0.png</file>
+    </qresource>
+
+    <qresource prefix="/character2">
+        <file alias="solyn2-0.png">img/character2/solyn2-0.png</file>
+    </qresource>
+
+    <qresource prefix="/character3">
+        <file alias="solyn3-0.png">img/character3/solyn3-0.png</file>
+    </qresource>
+
+    <qresource prefix="/character4">
+        <file alias="stardaughter0.png">img/character4/stardaughter0.png</file>
+    </qresource>
+
+    <qresource prefix="/characterangry1">
+        <file alias="solynangry0.png">img/characterangry1/solynangry0.png</file>
+    </qresource>
+
+    <qresource prefix="/characterangry1">
+        <file alias="stardaughterangry0.png">img/characterangry1/stardaughterangry0.png</file>
+    </qresource>
+
+    <qresource prefix="/move1">
+        <file alias="solynmoveleft0.png">img/move1/solynmoveleft0.png</file>
+        <file alias="solynmoveright0.png">img/move1/solynmoveright0.png</file>
+    </qresource>
+
+    <qresource prefix="/move1">
+        <file alias="stardaughtermove0.png">img/move1/stardaughtermoveleft0.png</file>
+        <file alias="stardaughtermoveleft0.png">img/move1/stardaughtermoveleft0.png</file>
+        <file alias="stardaughtermoveright0.png">img/move1/stardaughtermoveright0.png</file>
+    </qresource>
+
+    <qresource prefix="/sleeping1">
+        <file alias="solynsleeping0.png">img/sleeping1/solynsleeping0.png</file>
+    </qresource>
+
+    <qresource prefix="/sleeping1">
+        <file alias="stardaughtersleeping0.png">img/sleeping1/stardaughtersleeping0.png</file>
+    </qresource>
+
+    <qresource prefix="/text">
+        <file alias="text_angry1.png">img/text/text_angry1.png</file>
+        <file alias="text_ok.png">img/text/text_ok.png</file>
+        <file alias="text_can_sing.png">img/text/text_can_sing.png</file>
+        <file alias="text_go_to_sleep.png">img/text/text_go_to_sleep.png</file>
+        <file alias="text_start_listening.png">img/text/text_start_listening.png</file>
+    </qresource>
+
+    <qresource prefix="/icon">
+        <file alias="icon.png">img/icon.png</file>
+    </qresource>
+
+    <qresource prefix="/lightsymbol1">
+        <file alias="lightsymbol0.png">img/lightsymbol1/lightsymbol0.png</file>
+    </qresource>
+
+    <qresource prefix="/fist1">
+        <file alias="fist0.png">img/fist1/fist0.png</file>
+    </qresource>
+
+    <qresource prefix="/hand1">
+        <file alias="hand0.png">img/hand1/hand0.png</file>
+    </qresource>
+
+
+    <qresource prefix="/star1">
+        <file alias="star0.png">img/star1/star0.png</file>
+    </qresource>
+
+    <qresource prefix="/blackhole1">
+        <file alias="blackhole0.png">img/blackhole1/blackhole0.png</file>
+    </qresource>
+
+    <qresource prefix="/pull1">
+        <file alias="solynpull0.png">img/pull1/solynpull0.png</file>
+        <file alias="stardaughterpull0.png">img/pull1/stardaughterpull0.png</file>
+    </qresource>
+
+    <qresource prefix="/chatbox1">
+        <file alias="starchatbox0.png">img/chatbox1/starchatbox0.png</file>
+    </qresource>
+
+    <qresource prefix="/food1">
+        <file alias="food0-0.png">img/food1/food0-0.png</file>
+        <file alias="food1-0.png">img/food1/food1-0.png</file>
+        <file alias="food2-0.png">img/food1/food2-0.png</file>
+        <file alias="food3-0.png">img/food1/food3-0.png</file>
+        <file alias="food4-0.png">img/food1/food4-0.png</file>
+        <file alias="food5-0.png">img/food1/food5-0.png</file>
+        <file alias="food6-0.png">img/food1/food6-0.png</file>
+        <file alias="food7-0.png">img/food1/food7-0.png</file>
+        <file alias="food8-0.png">img/food1/food8-0.png</file>
+        <file alias="food9-0.png">img/food1/food9-0.png</file>
+        <file alias="food10-0.png">img/food1/food10-0.png</file>
+        <file alias="food11-0.png">img/food1/food11-0.png</file>
+        <file alias="food12-0.png">img/food1/food12-0.png</file>
+        <file alias="food13-0.png">img/food1/food13-0.png</file>
+        <file alias="food14-0.png">img/food1/food14-0.png</file>
+        <file alias="food15-0.png">img/food1/food15-0.png</file>
+        <file alias="food16-0.png">img/food1/food16-0.png</file>
+        <file alias="food17-0.png">img/food1/food17-0.png</file>
+        <file alias="food18-0.png">img/food1/food18-0.png</file>
+        <file alias="food19-0.png">img/food1/food19-0.png</file>
+    </qresource>
+
+    <qresource prefix="/throwstar1">
+        <file alias="star0-0.png">img/throwstar1/star0-0.png</file>
+        <file alias="star1-0.png">img/throwstar1/star1-0.png</file>
+        <file alias="star2-0.png">img/throwstar1/star2-0.png</file>
+        <file alias="star3-0.png">img/throwstar1/star3-0.png</file>
+        <file alias="star4-0.png">img/throwstar1/star4-0.png</file>
+    </qresource>
+</RCC>

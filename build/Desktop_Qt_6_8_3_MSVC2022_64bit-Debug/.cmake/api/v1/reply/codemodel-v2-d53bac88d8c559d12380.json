@@ -1,0 +1,79 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-c370ef1df3a4c144d2a3.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "LuminaPrayer",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "LuminaPrayer::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-LuminaPrayer-Debug-4aaf44632378af919e27.json",
+					"name" : "LuminaPrayer",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "LuminaPrayer_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-LuminaPrayer_autogen-Debug-883a621a9235c36ec190.json",
+					"name" : "LuminaPrayer_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "LuminaPrayer_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-LuminaPrayer_autogen_timestamp_deps-Debug-6e78b89c65586eee2863.json",
+					"name" : "LuminaPrayer_autogen_timestamp_deps",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug",
+		"source" : "D:/QtProject/LuminaPrayer"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 8
+	}
+}

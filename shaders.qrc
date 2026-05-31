@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/shaders">
+        <file alias="breathe.vert">shaders/breathe.vert</file>
+        <file alias="breathe.frag">shaders/breathe.frag</file>
+    </qresource>
+</RCC>

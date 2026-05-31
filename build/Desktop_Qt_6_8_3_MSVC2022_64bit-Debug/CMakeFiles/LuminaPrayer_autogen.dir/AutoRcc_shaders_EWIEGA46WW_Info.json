@@ -1,0 +1,26 @@
+{
+	"BUILD_DIR" : "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/LuminaPrayer_autogen",
+	"CMAKE_BINARY_DIR" : "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug",
+	"CMAKE_CURRENT_BINARY_DIR" : "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug",
+	"CMAKE_CURRENT_SOURCE_DIR" : "D:/QtProject/LuminaPrayer",
+	"CMAKE_SOURCE_DIR" : "D:/QtProject/LuminaPrayer",
+	"CROSS_CONFIG" : false,
+	"GENERATOR" : "Ninja",
+	"INCLUDE_DIR" : "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/LuminaPrayer_autogen/include",
+	"INPUTS" : 
+	[
+		"D:/QtProject/LuminaPrayer/shaders/breathe.frag",
+		"D:/QtProject/LuminaPrayer/shaders/breathe.vert"
+	],
+	"LOCK_FILE" : "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/CMakeFiles/LuminaPrayer_autogen.dir/AutoRcc_shaders_EWIEGA46WW_Lock.lock",
+	"MULTI_CONFIG" : false,
+	"OPTIONS" : [ "--no-zstd", "-name", "shaders" ],
+	"OUTPUT_CHECKSUM" : "EWIEGA46WW",
+	"OUTPUT_NAME" : "qrc_shaders.cpp",
+	"RCC_EXECUTABLE" : "D:/software/Qt/6.8.3/msvc2022_64/bin/rcc.exe",
+	"RCC_LIST_OPTIONS" : [ "--list" ],
+	"SETTINGS_FILE" : "D:/QtProject/LuminaPrayer/build/Desktop_Qt_6_8_3_MSVC2022_64bit-Debug/CMakeFiles/LuminaPrayer_autogen.dir/AutoRcc_shaders_EWIEGA46WW_Used.txt",
+	"SOURCE" : "D:/QtProject/LuminaPrayer/shaders.qrc",
+	"USE_BETTER_GRAPH" : true,
+	"VERBOSITY" : 0
+}
