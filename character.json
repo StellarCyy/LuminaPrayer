@@ -192,5 +192,64 @@
     "fade_out_duration_ms": 500,
     "ai_move_fly_duration_ms": 400,
     "ai_think_delay_ms": 200
+  },
+  "state_transitions": {
+    "states": {
+      "stand": {
+        "on_enter": ["end_playful"],
+        "transitions": [
+          { "trigger": "idle_to_move", "after_ms_key": "stand_to_move_wait_ms",
+            "to": "move", "post_behaviors": ["random_walk"], "rearm_on_interaction": true }
+        ]
+      },
+      "move": {
+        "transitions": [
+          { "trigger": "move_to_sleep", "after_ms_key": "move_to_sleep_wait_ms",
+            "to": "sleeping", "behaviors": ["halt_move"], "rearm_on_interaction": true },
+          { "trigger": "sit_detection", "after_ms_key": "move_to_sit_wait_ms",
+            "periodic_ms_key": "sit_detection_interval_ms",
+            "chance_percent_key": "sit_trigger_chance_percent",
+            "behaviors": ["allow_sit"], "rearm_on_interaction": true },
+          { "trigger": "playful_detection", "after_ms_key": "move_to_playful_wait_ms",
+            "periodic_ms_key": "playful_detection_interval_ms",
+            "chance_percent_key": "playful_trigger_chance_percent",
+            "behaviors": ["start_playful"], "rearm_on_interaction": false }
+        ]
+      },
+      "sleeping": {
+        "enter_hint": "text_go_to_sleep",
+        "on_enter": ["end_playful"]
+      },
+      "angry": {
+        "enter_hint": "text_angry",
+        "on_enter": ["end_playful"],
+        "transitions": [
+          { "trigger": "angry_recover", "after_ms_key": "angry_duration_ms",
+            "behaviors": ["angry_recover"], "rearm_on_interaction": false }
+        ]
+      },
+      "sitting_1": {
+        "on_enter": ["end_playful"],
+        "transitions": [
+          { "trigger": "sit_monitor", "periodic_ms_key": "sit_monitor_interval_ms",
+            "behaviors": ["sit_monitor_check"], "rearm_on_interaction": false },
+          { "trigger": "sit_timeout", "after_ms_key": "sit_mode_duration_ms",
+            "to": "move", "post_behaviors": ["random_walk"], "rearm_on_interaction": false }
+        ]
+      },
+      "sitting_2": {
+        "on_enter": ["end_playful"],
+        "transitions": [
+          { "trigger": "sit_monitor", "periodic_ms_key": "sit_monitor_interval_ms",
+            "behaviors": ["sit_monitor_check"], "rearm_on_interaction": false },
+          { "trigger": "sit_timeout", "after_ms_key": "sit_mode_duration_ms",
+            "to": "move", "post_behaviors": ["random_walk"], "rearm_on_interaction": false }
+        ]
+      }
+    }
+  },
+  "perception": {
+    "enabled": true,
+    "foreground_poll_ms": 1500
   }
 }

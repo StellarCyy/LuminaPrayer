@@ -29,6 +29,10 @@ qt_add_executable(LuminaPrayer
     settingsdialog.h
     profilemanager.cpp
     profilemanager.h
+    actionstatemachine.cpp
+    actionstatemachine.h
+    perceptionbus.cpp
+    perceptionbus.h
     playmate.cpp
     playmate.h
     audiomanager.cpp
@@ -82,6 +86,14 @@ endif()
 if (MSVC)
     target_compile_options(LuminaPrayer PRIVATE /utf-8)
 endif()
+
+# Keep the character profile JSON in sync with the build output directory
+# (runtime loads it from applicationDirPath — stale copies caused config drift)
+add_custom_command(TARGET LuminaPrayer POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/character.json
+        $<TARGET_FILE_DIR:LuminaPrayer>/character.json
+)
 
 include(GNUInstallDirs)
 install(TARGETS LuminaPrayer

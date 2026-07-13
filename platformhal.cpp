@@ -79,6 +79,24 @@ const SittableWindow& PlatformHAL::targetWindow() const {
     return m_targetWindow;
 }
 
+QString PlatformHAL::foregroundWindowTitle() {
+#ifdef Q_OS_WIN
+    HWND hwnd = GetForegroundWindow();
+    if (!hwnd || !IsWindowVisible(hwnd)) return {};
+    // Skip windows of our own process (pet, dialogs, game board) so
+    // perception always reflects the user's external environment.
+    DWORD pid = 0;
+    GetWindowThreadProcessId(hwnd, &pid);
+    if (pid == GetCurrentProcessId()) return {};
+    wchar_t title[256];
+    const int len = GetWindowTextW(hwnd, title, 256);
+    if (len <= 0) return {};
+    return QString::fromWCharArray(title, len);
+#else
+    return {};
+#endif
+}
+
 QPoint PlatformHAL::clampToScreen(const QPoint &topLeft, const QSize &windowSize) {
     QScreen *screen = QGuiApplication::primaryScreen();
     if (!screen) return topLeft;

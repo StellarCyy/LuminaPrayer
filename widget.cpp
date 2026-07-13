@@ -2,6 +2,8 @@
 #include "configmanager.h"
 #include "spriteresource.h"
 #include "platformhal.h"
+#include "actionstatemachine.h"
+#include "perceptionbus.h"
 #include "audiomanager.h"
 #include "dragfilter.h"
 #include "fistwidget.h"
@@ -30,6 +32,7 @@
 #include <QRandomGenerator>
 #include <QInputDialog>
 #include <QPropertyAnimation>
+#include <QThread>
 #include <cmath>
 #include <algorithm>
 
@@ -61,8 +64,12 @@ Widget::Widget(QWidget *parent)
     m_audio(new AudioManager(this)),
     m_hardware(nullptr),
     m_breathFx(nullptr),
+    m_actionMachine(new ActionStateMachine(this)),
+    m_perception(nullptr),
+    m_perceptionThread(nullptr),
     // State
     cur_role_act(RoleAct::Stand),
+    cur_action_id(Act::Id::Stand),
     show_character(true),
     is_form_switching(false),
     form_flash_opacity(0.0),
@@ -79,14 +86,8 @@ Widget::Widget(QWidget *parent)
     frame_timer(new QTimer(this)),
     clock_timer(new QTimer(this)),
     clock_display_timer(new QTimer(this)),
-    idle_timer(new QTimer(this)),
-    sleep_timer(new QTimer(this)),
-    sit_entry_timer(new QTimer(this)),
     click_reset_timer(new QTimer(this)),
-    sit_monitor_timer(new QTimer(this)),
-    sit_duration_timer(new QTimer(this)),
     stand_shake_timer(new QTimer(this)),
-    playful_entry_timer(new QTimer(this)),
     playful_duration_timer(new QTimer(this)),
     playmate_chase_timer(new QTimer(this)),
     auto_sing_timer(new QTimer(this)),
@@ -100,8 +101,6 @@ Widget::Widget(QWidget *parent)
     // Interaction
     click_count(0),
     playful_mode_active(false),
-    sit_detection_started(false),
-    playful_detection_started(false),
     is_stand_shaking(false),
     stand_shake_origin(QPoint()),
     stand_shake_remaining_steps(0),
@@ -162,10 +161,10 @@ Widget::Widget(QWidget *parent)
 
     // -- Frame animation timer --
     connect(frame_timer, &QTimer::timeout, [this](){
-        auto paths = m_sprites->actionPaths(cur_role_act, cfg().character_form);
+        auto paths = m_sprites->actionPaths(cur_action_id, cfg().character_form);
         if (paths.isEmpty()) return;
         this->cur_role_pix = SpriteResource::resolveFramePath(
-            paths, cur_role_act, move_face_right, m_frameIndex++);
+            paths, m_sprites->isDirectional(cur_action_id), move_face_right, m_frameIndex++);
         this->update();
     });
 
@@ -200,22 +199,6 @@ Widget::Widget(QWidget *parent)
         }
     });
 
-    // -- Playful entry timer (two-phase: single-shot wait then periodic detection) --
-    playful_entry_timer->setSingleShot(true);
-    connect(playful_entry_timer, &QTimer::timeout, this, [this]() {
-        if (cur_role_act != RoleAct::Move || playful_mode_active) return;
-
-        if (!playful_detection_started) {
-            playful_detection_started = true;
-            playful_entry_timer->setSingleShot(false);
-            playful_entry_timer->start(cfg().playful_detection_interval_ms);
-        }
-
-        if (QRandomGenerator::global()->bounded(100) < cfg().playful_trigger_chance_percent) {
-            startPlayfulMode();
-        }
-    });
-
     // -- Playful duration timer --
     playful_duration_timer->setSingleShot(true);
     connect(playful_duration_timer, &QTimer::timeout, this, [this]() {
@@ -225,41 +208,8 @@ Widget::Widget(QWidget *parent)
     // -- Playmate chase timer --
     connect(playmate_chase_timer, &QTimer::timeout, this, &Widget::updatePlaymateChase);
 
-    // -- Idle timer (Stand -> Move) --
-    idle_timer->setSingleShot(true);
-    connect(idle_timer, &QTimer::timeout, [this](){
-        if (m_gomokuMode) return;
-        if (cur_role_act == RoleAct::Stand) {
-            showActAnimation(RoleAct::Move);
-            startRandomWalk();
-        }
-    });
-
-    // -- Sleep timer --
-    sleep_timer->setSingleShot(true);
-    connect(sleep_timer, &QTimer::timeout, [this](){
-        if (m_gomokuMode) return;
-        if (cur_role_act != RoleAct::Angry) {
-            stopWalking();
-            showActAnimation(RoleAct::Sleeping);
-        }
-    });
-
-    // -- Sit entry timer (two-phase: single-shot wait then periodic detection) --
-    sit_entry_timer->setSingleShot(true);
-    connect(sit_entry_timer, &QTimer::timeout, [this](){
-        if (cur_role_act != RoleAct::Move) return;
-
-        if (!sit_detection_started) {
-            sit_detection_started = true;
-            sit_entry_timer->setSingleShot(false);
-            sit_entry_timer->start(cfg().sit_detection_interval_ms);
-        }
-
-        if (QRandomGenerator::global()->bounded(100) < cfg().sit_trigger_chance_percent) {
-            allow_sit_try = true;
-        }
-    });
+    // (Idle / sleep / sit-detection / playful-detection timers are armed by
+    //  the data-driven ActionStateMachine — see setupActionMachine())
 
     // -- Click reset timer --
     click_reset_timer->setSingleShot(true);
@@ -295,33 +245,6 @@ Widget::Widget(QWidget *parent)
         }
     });
 
-    // -- Sit monitor timer (platform-abstracted via HAL) --
-    connect(sit_monitor_timer, &QTimer::timeout, [this](){
-        if (!m_hal->isTargetWindowValid()) {
-            sit_monitor_timer->stop();
-            sit_duration_timer->stop();
-            showActAnimation(RoleAct::Move);
-            startRandomWalk();
-            return;
-        }
-        if (m_hal->hasTargetWindowMoved()) {
-            sit_monitor_timer->stop();
-            sit_duration_timer->stop();
-            showActAnimation(RoleAct::Move);
-            startRandomWalk();
-        }
-    });
-
-    // -- Sit duration timer --
-    sit_duration_timer->setSingleShot(true);
-    connect(sit_duration_timer, &QTimer::timeout, this, [this]() {
-        if (cur_role_act == RoleAct::Sitting_1 || cur_role_act == RoleAct::Sitting_2) {
-            sit_monitor_timer->stop();
-            showActAnimation(RoleAct::Move);
-            startRandomWalk();
-        }
-    });
-
     // -- Star physics timer --
     connect(m_starPhysicsTimer, &QTimer::timeout, this, &Widget::updateStarPhysics);
 
@@ -333,6 +256,7 @@ Widget::Widget(QWidget *parent)
     });
 
     // -- Initialization sequence --
+    setupActionMachine();
     initMenu();
     m_config->load();
     m_statusMgr->setStatsVariable(cfg().stats_variable);
@@ -353,6 +277,11 @@ Widget::Widget(QWidget *parent)
         QWidget::move(savedPos);
     }
 
+    // -- v4 perception bus (environment awareness, worker thread) --
+    if (PM()->perception().enabled) {
+        startPerception();
+    }
+
     showActAnimation(RoleAct::Stand);
     if (cfg().auto_sing_enabled) {
         scheduleNextHumming();
@@ -365,6 +294,8 @@ Widget::Widget(QWidget *parent)
 }
 
 Widget::~Widget() {
+    // Stop the perception worker thread before members are torn down
+    stopPerception();
     // Clean up StatusPanel (parentless top-level widget)
     if (m_statusPanel) {
         m_statusPanel->close();
@@ -398,20 +329,14 @@ void Widget::resetIdleTimer() {
     // Notify attribute system of user interaction (resets interest idle clock)
     m_statusMgr->notifyMouseInteraction();
 
-    if (cur_role_act == RoleAct::Sleeping) {
-        showActAnimation(RoleAct::Stand);
+    if (cur_action_id == Act::Id::Sleeping) {
+        enterAction(Act::Id::Stand);
         return;
     }
-    if (cur_role_act == RoleAct::Move) {
-        sleep_timer->start(cfg().move_to_sleep_wait_ms);
-        sit_entry_timer->start(cfg().move_to_sit_wait_ms);
-        allow_sit_try = false;
-    } else {
-        idle_timer->start(cfg().stand_to_move_wait_ms);
-        sleep_timer->stop();
-        sit_entry_timer->stop();
-        allow_sit_try = false;
-    }
+    // Restart phase 1 of every rearm_on_interaction rule of the active state
+    // (legacy: sleep/sit timers in Move, idle timer in Stand).
+    allow_sit_try = false;
+    m_actionMachine->rearm();
 }
 
 void Widget::scheduleNextHumming() {
@@ -520,17 +445,8 @@ void Widget::triggerAngryAttack() {
     new FistWidget(spawnLeftBottom, true, this);
     new FistWidget(spawnRightTop, false, this);
 
-    QTimer::singleShot(PB().angry_duration_ms, this, [this](){
-        if (cur_role_act == RoleAct::Angry) {
-            // H-5: Resume gomoku if it was suspended, otherwise normal idle
-            if (m_gomokuMode && m_gomokuSuspended) {
-                resumeGomokuFromAngry();
-            } else {
-                showActAnimation(RoleAct::Stand);
-                resetIdleTimer();
-            }
-        }
-    });
+    // Recovery is owned by the topology's angry_recover rule
+    // (after_ms_key: angry_duration_ms — see setupActionMachine()).
 }
 
 // ==========================================
@@ -559,25 +475,18 @@ void Widget::startPlayfulMode() {
     playmate->playEntryAnimation();
 
     playful_mode_active = true;
-    playful_entry_timer->stop();
     playful_duration_timer->start(cfg().playful_mode_duration_ms);
     playmate_chase_timer->start(PB().playmate_chase_interval_ms);
 }
 
 void Widget::endPlayfulMode(bool playmateExitAnimation) {
-    const bool wasActive = playful_mode_active;
-
-    playful_entry_timer->stop();
     playmate_chase_timer->stop();
     playful_duration_timer->stop();
     playful_mode_active = false;
     playmate_velocity = QPointF(0.0, 0.0);
 
-    if (wasActive && cur_role_act == RoleAct::Move) {
-        playful_detection_started = true;
-        playful_entry_timer->setSingleShot(false);
-        playful_entry_timer->start(cfg().playful_detection_interval_ms);
-    }
+    // (Re-entry detection is owned by the machine's periodic
+    //  playful_detection rule, which keeps running while in Move.)
 
     if (!playmate) return;
 
@@ -771,8 +680,6 @@ void Widget::stopWalking() {
         current_move_anim->deleteLater();
         current_move_anim = nullptr;
     }
-    sit_monitor_timer->stop();
-    sit_duration_timer->stop();
 
     if (cur_role_act == RoleAct::Angry) return;
     if (cur_role_act != RoleAct::Stand) {
@@ -802,26 +709,22 @@ void Widget::findAndSitOnWindow() {
     flyAnim->setEasingCurve(QEasingCurve::InOutQuad);
 
     frame_timer->stop();
-    cur_role_act = QRandomGenerator::global()->bounded(2) == 0
-                       ? RoleAct::Sitting_1 : RoleAct::Sitting_2;
+    cur_action_id = QRandomGenerator::global()->bounded(2) == 0
+                        ? Act::Id::Sitting_1 : Act::Id::Sitting_2;
+    cur_role_act = roleActFromId(cur_action_id);
 
     if (current_move_anim) {
         current_move_anim->stop();
         current_move_anim->deleteLater();
         current_move_anim = nullptr;
     }
-    sit_monitor_timer->stop();
+    // Transient fly phase: no state rules may fire until touchdown
+    m_actionMachine->stopAll();
 
     connect(flyAnim, &QPropertyAnimation::finished, this, [this, flyAnim](){
-        auto paths = m_sprites->actionPaths(cur_role_act, cfg().character_form);
-        if (!paths.isEmpty()) {
-            this->cur_role_pix = paths.first();
-            this->update();
-        }
-
-        sit_monitor_timer->start(PB().sit_monitor_interval_ms);
-        sit_duration_timer->start(cfg().sit_mode_duration_ms);
-
+        // Touchdown: enter the sitting state properly — sprite plus the
+        // topology's sit_monitor / sit_timeout rules.
+        enterAction(cur_action_id);
         flyAnim->deleteLater();
     });
 
@@ -871,7 +774,6 @@ void Widget::playLightAnimation() {
 }
 
 void Widget::playExitAnimation() {
-    idle_timer->stop();
     showActAnimation(RoleAct::Stand);
     show_light = true;
     show_character = true;
@@ -923,78 +825,193 @@ void Widget::showFromTray() {
 }
 
 // ==========================================
-// State machine: showActAnimation
+// State machine: enterAction (v4 data-driven)
 // ==========================================
 
 void Widget::showActAnimation(RoleAct k) {
-    // Action lock: during Gomoku, only Stand and Angry are allowed
-    if (m_gomokuMode && k != RoleAct::Stand && k != RoleAct::Angry) return;
+    enterAction(actionIdFor(k));
+}
 
-    const RoleAct previousAct = cur_role_act;
+void Widget::enterAction(const QString &actionId) {
+    // Action lock: during Gomoku, only Stand and Angry are allowed
+    if (m_gomokuMode && actionId != Act::Id::Stand && actionId != Act::Id::Angry) return;
+
+    const QString previousId = cur_action_id;
     frame_timer->stop();
-    this->cur_role_act = k;
+    cur_action_id = actionId;
+    cur_role_act  = roleActFromId(actionId, RoleAct::Stand);
 
     // Notify attribute system of state change
-    m_statusMgr->setCurrentAct(k);
-    if (k == RoleAct::Angry && previousAct != RoleAct::Angry) {
+    m_statusMgr->setCurrentAct(cur_role_act);
+    if (actionId == Act::Id::Angry && previousId != Act::Id::Angry) {
         m_statusMgr->notifyAngry();
     }
 
-    // 【核心修复 3】Move 动画帧逻辑: 方向帧数量 & 索引
-    auto paths = m_sprites->actionPaths(k, cfg().character_form);
+    // First frame of the new action (directional actions resolve by facing)
+    auto paths = m_sprites->actionPaths(actionId, cfg().character_form);
     if (!paths.isEmpty()) {
         this->cur_role_pix = SpriteResource::resolveFramePath(
-            paths, k, move_face_right, 0);
+            paths, m_sprites->isDirectional(actionId), move_face_right, 0);
         this->update();
     }
 
-    // D-1: Stop-all-first pattern — safe default for any RoleAct.
-    // New states (Dancing, Reading, …) automatically fall into the clean
-    // default path without needing additional branches.
-    idle_timer->stop();
-    sleep_timer->stop();
-    sit_entry_timer->stop();
-    sit_duration_timer->stop();
-    playful_entry_timer->stop();
-    sit_detection_started = false;
-    playful_detection_started = false;
+    // Data-driven topology: disarms the previous state's rules, runs
+    // on_enter behaviors, then arms this state's transition rules.
+    // States without a spec (or custom JSON states without rules) simply
+    // idle — the old D-1 stop-all-first guarantee now falls out of the
+    // machine's disarm-on-enter contract.
     allow_sit_try = false;
+    m_actionMachine->enterState(actionId);
 
-    switch (k) {
-    case RoleAct::Stand:
-        idle_timer->start(cfg().stand_to_move_wait_ms);
-        endPlayfulMode(true);
-        break;
-    case RoleAct::Move:
-        sleep_timer->start(cfg().move_to_sleep_wait_ms);
-        sit_entry_timer->setSingleShot(true);
-        sit_entry_timer->start(cfg().move_to_sit_wait_ms);
-        if (!playful_mode_active) {
-            playful_entry_timer->setSingleShot(true);
-            playful_entry_timer->start(cfg().move_to_playful_wait_ms);
-        }
-        break;
-    default:
-        // Sleeping, Angry, Sitting_1, Sitting_2, and any future states
-        endPlayfulMode(true);
-        break;
-    }
-
-    if (k == RoleAct::Sleeping && previousAct != RoleAct::Sleeping) {
-        showBottomHintTransient(PS().hint_text_go_to_sleep, cfg().hint_display_duration_ms);
-    } else if (k == RoleAct::Angry && previousAct != RoleAct::Angry) {
-        showBottomHintTransient(PS().hint_text_angry, cfg().hint_display_duration_ms);
+    // Per-state presentation from the spec (enter hint + frame rate)
+    const ActionStateSpec *spec = m_actionMachine->spec(actionId);
+    if (spec && !spec->enter_hint.isEmpty() && previousId != actionId) {
+        const QString hintPix = PS().hintPath(spec->enter_hint);
+        if (!hintPix.isEmpty())
+            showBottomHintTransient(hintPix, cfg().hint_display_duration_ms);
     }
 
     m_frameIndex = 0;
-    frame_timer->start(PA().frame_interval_ms);
+    const int frameMs = (spec && spec->frame_interval_ms > 0)
+                            ? spec->frame_interval_ms
+                            : PA().frame_interval_ms;
+    frame_timer->start(frameMs);
+}
+
+// ==========================================
+// v4: machine wiring — duration keys + named behaviors
+// ==========================================
+
+void Widget::setupActionMachine() {
+    m_actionMachine->setTopology(&PM()->actionTopology());
+
+    // Duration/chance key resolver: user-tunable config first (lumina_config.ini),
+    // then profile constants (character.json "behavior").
+    m_actionMachine->setDurationResolver([this](const QString &key) -> int {
+        const BehaviorConfig &c = cfg();
+        if (key == QLatin1String("stand_to_move_wait_ms"))          return c.stand_to_move_wait_ms;
+        if (key == QLatin1String("move_to_sleep_wait_ms"))          return c.move_to_sleep_wait_ms;
+        if (key == QLatin1String("move_to_sit_wait_ms"))            return c.move_to_sit_wait_ms;
+        if (key == QLatin1String("move_to_playful_wait_ms"))        return c.move_to_playful_wait_ms;
+        if (key == QLatin1String("sit_detection_interval_ms"))      return c.sit_detection_interval_ms;
+        if (key == QLatin1String("sit_trigger_chance_percent"))     return c.sit_trigger_chance_percent;
+        if (key == QLatin1String("sit_mode_duration_ms"))           return c.sit_mode_duration_ms;
+        if (key == QLatin1String("playful_detection_interval_ms"))  return c.playful_detection_interval_ms;
+        if (key == QLatin1String("playful_trigger_chance_percent")) return c.playful_trigger_chance_percent;
+        if (key == QLatin1String("playful_mode_duration_ms"))       return c.playful_mode_duration_ms;
+        if (key == QLatin1String("hint_display_duration_ms"))       return c.hint_display_duration_ms;
+        const BehaviorProfile &b = PB();
+        if (key == QLatin1String("sit_monitor_interval_ms"))        return b.sit_monitor_interval_ms;
+        if (key == QLatin1String("angry_duration_ms"))              return b.angry_duration_ms;
+        if (key == QLatin1String("humming_min_interval_ms"))        return b.humming_min_interval_ms;
+        if (key == QLatin1String("humming_max_interval_ms"))        return b.humming_max_interval_ms;
+        if (key == QLatin1String("walk_restart_delay_ms"))          return b.walk_restart_delay_ms;
+        if (key == QLatin1String("clock_display_duration_ms"))      return b.clock_display_duration_ms;
+        return -1;
+    });
+
+    // ── Named behaviors, referencable from character.json rules ──
+    m_actionMachine->registerBehavior(QStringLiteral("end_playful"), [this]() {
+        endPlayfulMode(true);
+        return true;
+    });
+    m_actionMachine->registerBehavior(QStringLiteral("halt_move"), [this]() {
+        if (current_move_anim) {
+            current_move_anim->stop();
+            current_move_anim->deleteLater();
+            current_move_anim = nullptr;
+        }
+        return true;
+    });
+    m_actionMachine->registerBehavior(QStringLiteral("random_walk"), [this]() {
+        startRandomWalk();
+        return true;
+    });
+    m_actionMachine->registerBehavior(QStringLiteral("allow_sit"), [this]() {
+        allow_sit_try = true;
+        return true;
+    });
+    m_actionMachine->registerBehavior(QStringLiteral("start_playful"), [this]() {
+        if (!playful_mode_active) startPlayfulMode();
+        return true;
+    });
+    m_actionMachine->registerBehavior(QStringLiteral("sit_monitor_check"), [this]() {
+        if (!m_hal->isTargetWindowValid() || m_hal->hasTargetWindowMoved()) {
+            showActAnimation(RoleAct::Move);
+            startRandomWalk();
+        }
+        return true;
+    });
+    m_actionMachine->registerBehavior(QStringLiteral("angry_recover"), [this]() {
+        // H-5: Resume gomoku if it was suspended, otherwise normal idle
+        if (m_gomokuMode && m_gomokuSuspended) {
+            resumeGomokuFromAngry();
+        } else {
+            showActAnimation(RoleAct::Stand);
+            resetIdleTimer();
+        }
+        return true;
+    });
+
+    connect(m_actionMachine, &ActionStateMachine::transitionRequested,
+            this, &Widget::onMachineTransition);
+}
+
+void Widget::onMachineTransition(const QString &to, const QStringList &postBehaviors) {
+    // Gomoku action lock mirrors enterAction: a blocked transition must also
+    // skip its post-behaviors (prevents stray walks during a match).
+    if (m_gomokuMode && to != Act::Id::Stand && to != Act::Id::Angry) return;
+    enterAction(to);
+    m_actionMachine->runBehaviorList(postBehaviors);
+}
+
+// ==========================================
+// v4: perception bus lifecycle (worker thread)
+// ==========================================
+
+void Widget::startPerception() {
+    const int pollMs = PM()->perception().foreground_poll_ms;
+
+    if (m_perception) {
+        // Already running: retune the poll interval on the bus thread
+        PerceptionBus *bus = m_perception;
+        QMetaObject::invokeMethod(bus, [bus, pollMs]() { bus->start(pollMs); },
+                                  Qt::QueuedConnection);
+        return;
+    }
+
+    m_perceptionThread = new QThread(this);
+    m_perceptionThread->setObjectName(QStringLiteral("PerceptionBus"));
+    m_perception = new PerceptionBus();   // parentless: owned by thread teardown
+    m_perception->moveToThread(m_perceptionThread);
+    connect(m_perceptionThread, &QThread::finished,
+            m_perception, &QObject::deleteLater);
+
+    // Auto-queued: delivered on the GUI thread
+    connect(m_perception, &PerceptionBus::foregroundWindowChanged,
+            this, [this](const QString &title) { m_perceivedWindowTitle = title; });
+
+    m_perceptionThread->start();
+    PerceptionBus *bus = m_perception;
+    QMetaObject::invokeMethod(bus, [bus, pollMs]() { bus->start(pollMs); },
+                              Qt::QueuedConnection);
+}
+
+void Widget::stopPerception() {
+    if (!m_perceptionThread) return;
+    m_perceptionThread->quit();
+    m_perceptionThread->wait(2000);
+    m_perceptionThread->deleteLater();
+    m_perceptionThread = nullptr;
+    m_perception = nullptr;   // deleted via QThread::finished -> deleteLater
+    m_perceivedWindowTitle.clear();
 }
 
 void Widget::applyCurrentForm() {
-    auto paths = m_sprites->actionPaths(cur_role_act, cfg().character_form);
+    auto paths = m_sprites->actionPaths(cur_action_id, cfg().character_form);
     if (!paths.isEmpty()) {
         cur_role_pix = SpriteResource::resolveFramePath(
-            paths, cur_role_act, move_face_right, 0);
+            paths, m_sprites->isDirectional(cur_action_id), move_face_right, 0);
         update();
     }
 }
@@ -1656,7 +1673,14 @@ void Widget::sendAIMessage(const QString &text) {
     m_deepSeekChat->setMaxHistory(cfg().ai_max_history);
     m_deepSeekChat->setTimeoutMs(cfg().ai_timeout_ms);
     m_deepSeekChat->setSystemPrompt(cfg().ai_system_prompt);
-    m_deepSeekChat->sendMessage(text);
+
+    // v4 perception: inject environment context into the outgoing message
+    QString payload = text;
+    if (!m_perceivedWindowTitle.isEmpty()) {
+        payload = QStringLiteral("[环境感知：用户当前的前台窗口是「%1」]\n%2")
+                      .arg(m_perceivedWindowTitle, text);
+    }
+    m_deepSeekChat->sendMessage(payload);
 }
 
 // ==========================================
@@ -1678,12 +1702,7 @@ void Widget::reloadProfile(const QString &jsonPath) {
     stopWalking();
     endPlayfulMode(false);
     frame_timer->stop();
-    idle_timer->stop();
-    sleep_timer->stop();
-    sit_entry_timer->stop();
-    sit_duration_timer->stop();
-    sit_monitor_timer->stop();
-    playful_entry_timer->stop();
+    m_actionMachine->stopAll();
     playful_duration_timer->stop();
     playmate_chase_timer->stop();
     auto_sing_timer->stop();
@@ -1723,7 +1742,14 @@ void Widget::reloadProfile(const QString &jsonPath) {
         auto_sing_toggle_action->setText(cfg().auto_sing_enabled ? "我想安静一点" : "我想听听你的声音");
     }
 
-    // 7. Restart normal operation
+    // 7. Restart perception with the new profile's settings
+    if (PM()->perception().enabled) {
+        startPerception();
+    } else {
+        stopPerception();
+    }
+
+    // 8. Restart normal operation
     showActAnimation(RoleAct::Stand);
     if (cfg().auto_sing_enabled) {
         scheduleNextHumming();
@@ -1758,24 +1784,12 @@ void Widget::openSettingsDialog() {
         m_statusMgr->setStatsVariable(cfg().stats_variable);
         m_statusMgr->setTickIntervalMs(cfg().stats_tick_interval_ms);
 
-        // Refresh running timers for current state
-        if (cur_role_act == RoleAct::Move) {
-            sit_detection_started = false;
-            playful_detection_started = false;
-            allow_sit_try = false;
-
-            sit_entry_timer->setSingleShot(true);
-            sit_entry_timer->start(cfg().move_to_sit_wait_ms);
-
-            if (!playful_mode_active) {
-                playful_entry_timer->setSingleShot(true);
-                playful_entry_timer->start(cfg().move_to_playful_wait_ms);
-            } else {
-                playful_duration_timer->start(cfg().playful_mode_duration_ms);
-            }
-        } else if (cur_role_act == RoleAct::Sitting_1 || cur_role_act == RoleAct::Sitting_2) {
-            sit_duration_timer->start(cfg().sit_mode_duration_ms);
-        }
+        // Refresh running timers for current state (v4: durations are
+        // resolved from config at arm time, so re-arming picks up new values)
+        allow_sit_try = false;
+        m_actionMachine->refreshAll();
+        if (playful_mode_active)
+            playful_duration_timer->start(cfg().playful_mode_duration_ms);
 
         // Apply auto-throw star toggle immediately
         if (cfg().auto_throw_star) {
@@ -1825,7 +1839,7 @@ void Widget::recallStar() {
     if (m_stars.isEmpty()) return;
     StarWidget *last = m_stars.takeLast();
     last->close();
-    delete last;
+    last->deleteLater();   // defer: never destroy a widget inside its own event
 
     if (m_stars.isEmpty())
         m_starPhysicsTimer->stop();
@@ -1838,7 +1852,7 @@ void Widget::recallAllStars() {
     m_starPhysicsTimer->stop();
     for (StarWidget *s : m_stars) {
         s->close();
-        delete s;
+        s->deleteLater();   // defer: never destroy a widget inside its own event
     }
     m_stars.clear();
     updateStarMenuState();
@@ -1942,12 +1956,7 @@ void Widget::startGomoku(bool humanFirst) {
 
     // Stop all behavior timers
     stopWalking();
-    idle_timer->stop();
-    sleep_timer->stop();
-    sit_entry_timer->stop();
-    sit_duration_timer->stop();
-    sit_monitor_timer->stop();
-    playful_entry_timer->stop();
+    m_actionMachine->stopAll();
     playful_duration_timer->stop();
     playmate_chase_timer->stop();
     auto_sing_timer->stop();
@@ -1955,9 +1964,9 @@ void Widget::startGomoku(bool humanFirst) {
     click_reset_timer->stop();
     endPlayfulMode(false);
 
-    // Switch to Stand (this restarts idle_timer, so stop it again)
+    // Switch to Stand (this re-arms Stand's rules, so disarm again)
     showActAnimation(RoleAct::Stand);
-    idle_timer->stop();
+    m_actionMachine->stopAll();
     frame_timer->stop();
 
     // Move character to top-right corner
@@ -2098,7 +2107,7 @@ void Widget::gomokuDragSelfHeal() {
 void Widget::resumeGomokuFromAngry() {
     m_gomokuSuspended = false;
     showActAnimation(RoleAct::Stand);
-    idle_timer->stop();
+    m_actionMachine->stopAll();
     frame_timer->stop();
 
     // Fly back to top-right corner, then the board will continue naturally

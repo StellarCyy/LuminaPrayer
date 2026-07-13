@@ -34,27 +34,31 @@ void ProfileManager::applyDefaults() {
     m_breathEffect = BreathEffectProfile();
     m_ui           = UIProfile();
 
-    // Default Solyn form
+    // Default Solyn form (generic string-keyed entries; sitting not scaled)
     FormDef solynDef;
-    solynDef.stand      = { QStringLiteral(":/character1/solyn%d.png"), 1 };
-    solynDef.move_left  = { QStringLiteral(":/move1/solynmoveleft%d.png"), 1 };
-    solynDef.move_right = { QStringLiteral(":/move1/solynmoveright%d.png"), 1 };
-    solynDef.sleeping   = { QStringLiteral(":/sleeping1/solynsleeping%d.png"), 1 };
-    solynDef.angry      = { QStringLiteral(":/characterangry1/solynangry%d.png"), 1 };
-    solynDef.sitting_1  = { QStringLiteral(":/character2/solyn2-%d.png"), 1 };
-    solynDef.sitting_2  = { QStringLiteral(":/character3/solyn3-%d.png"), 1 };
+    solynDef.set(QStringLiteral("stand"),      { QStringLiteral(":/character1/solyn%d.png"), 1, true });
+    solynDef.set(QStringLiteral("move_left"),  { QStringLiteral(":/move1/solynmoveleft%d.png"), 1, false });
+    solynDef.set(QStringLiteral("move_right"), { QStringLiteral(":/move1/solynmoveright%d.png"), 1, false });
+    solynDef.set(QStringLiteral("sleeping"),   { QStringLiteral(":/sleeping1/solynsleeping%d.png"), 1, true });
+    solynDef.set(QStringLiteral("angry"),      { QStringLiteral(":/characterangry1/solynangry%d.png"), 1, true });
+    solynDef.set(QStringLiteral("sitting_1"),  { QStringLiteral(":/character2/solyn2-%d.png"), 1, false });
+    solynDef.set(QStringLiteral("sitting_2"),  { QStringLiteral(":/character3/solyn3-%d.png"), 1, false });
     m_sprites.forms.insert(CharacterForm::Solyn, solynDef);
 
     // Default StarDaughter form (inherits sitting from Solyn)
     FormDef starDef;
-    starDef.stand      = { QStringLiteral(":/character4/stardaughter%d.png"), 1 };
-    starDef.move_left  = { QStringLiteral(":/move1/stardaughtermoveleft%d.png"), 1 };
-    starDef.move_right = { QStringLiteral(":/move1/stardaughtermoveright%d.png"), 1 };
-    starDef.sleeping   = { QStringLiteral(":/sleeping1/stardaughtersleeping%d.png"), 1 };
-    starDef.angry      = { QStringLiteral(":/characterangry1/stardaughterangry%d.png"), 1 };
-    starDef.sitting_1  = solynDef.sitting_1;
-    starDef.sitting_2  = solynDef.sitting_2;
+    starDef.set(QStringLiteral("stand"),      { QStringLiteral(":/character4/stardaughter%d.png"), 1, true });
+    starDef.set(QStringLiteral("move_left"),  { QStringLiteral(":/move1/stardaughtermoveleft%d.png"), 1, false });
+    starDef.set(QStringLiteral("move_right"), { QStringLiteral(":/move1/stardaughtermoveright%d.png"), 1, false });
+    starDef.set(QStringLiteral("sleeping"),   { QStringLiteral(":/sleeping1/stardaughtersleeping%d.png"), 1, true });
+    starDef.set(QStringLiteral("angry"),      { QStringLiteral(":/characterangry1/stardaughterangry%d.png"), 1, true });
+    starDef.set(QStringLiteral("sitting_1"),  solynDef.entry(QStringLiteral("sitting_1")));
+    starDef.set(QStringLiteral("sitting_2"),  solynDef.entry(QStringLiteral("sitting_2")));
     m_sprites.forms.insert(CharacterForm::StarDaughter, starDef);
+
+    // v4: canonical action topology + perception defaults
+    applyDefaultTopology();
+    m_perception = PerceptionProfile();
 
     // Default pull sprites per form
     m_sprites.pull.insert(CharacterForm::Solyn,        QStringLiteral(":/pull1/solynpull0.png"));
@@ -202,6 +206,10 @@ void ProfileManager::parseRoot(const QJsonObject &root) {
         parseGomoku(root["gomoku"].toObject());
     if (root.contains("food_menu") && root["food_menu"].isObject())
         parseFoodMenu(root["food_menu"].toObject());
+    if (root.contains("state_transitions") && root["state_transitions"].isObject())
+        parseStateTransitions(root["state_transitions"].toObject());
+    if (root.contains("perception") && root["perception"].isObject())
+        parsePerception(root["perception"].toObject());
 }
 
 void ProfileManager::parseMeta(const QJsonObject &obj) {
@@ -261,23 +269,32 @@ void ProfileManager::parseSprites(const QJsonObject &obj) {
 }
 
 void ProfileManager::parseFormDef(const QJsonObject &obj, FormDef &form) {
-    auto tryParse = [&](const QString &key, SpriteEntry &entry) {
-        if (obj.contains(key) && obj[key].isObject())
-            entry = parseSpriteEntry(obj[key].toObject());
-    };
-    tryParse("stand",      form.stand);
-    tryParse("move_left",  form.move_left);
-    tryParse("move_right", form.move_right);
-    tryParse("sleeping",   form.sleeping);
-    tryParse("angry",      form.angry);
-    tryParse("sitting_1",  form.sitting_1);
-    tryParse("sitting_2",  form.sitting_2);
+    // Fully generic: every JSON key becomes an action sprite entry. New action
+    // forms therefore require zero C++ changes — only JSON + resources.
+    for (auto it = obj.begin(); it != obj.end(); ++it) {
+        if (!it.value().isObject()) continue;
+        const QJsonObject entryObj = it.value().toObject();
+        SpriteEntry e = parseSpriteEntry(entryObj);
+        if (e.pattern.isEmpty()) continue;
+        if (!entryObj.contains(QLatin1String("scale"))) {
+            // Preserve default scaling intent when JSON omits the flag
+            // (canonical: sitting/move frames are used at native size).
+            if (form.has(it.key()))
+                e.scale = form.entry(it.key()).scale;
+            else
+                e.scale = !it.key().startsWith(QLatin1String("sitting"))
+                          && !it.key().endsWith(QLatin1String("_left"))
+                          && !it.key().endsWith(QLatin1String("_right"));
+        }
+        form.set(it.key(), e);
+    }
 }
 
 SpriteEntry ProfileManager::parseSpriteEntry(const QJsonObject &obj) {
     SpriteEntry e;
     e.pattern = safeString(obj, "pattern", QString());
     e.count   = safeInt(obj, "count", 1);
+    e.scale   = safeBool(obj, "scale", true);
     if (e.count < 1) e.count = 1;
     return e;
 }
@@ -552,4 +569,142 @@ QColor ProfileManager::jsonArrayToColor(const QJsonArray &arr, const QColor &fal
     int b = arr[2].toInt(0);
     int a = (arr.size() >= 4) ? arr[3].toInt(255) : 255;
     return QColor(r, g, b, a);
+}
+
+// =============================================
+// v4: Action topology — built-in canonical default
+// (exact mirror of the legacy hard-coded timer graph)
+// =============================================
+void ProfileManager::applyDefaultTopology() {
+    m_actionTopology = ActionTopologyProfile();
+
+    auto makeRule = [](const QString &trigger, const QString &afterKey,
+                       const QString &periodicKey, const QString &chanceKey,
+                       const QString &to, const QStringList &behaviors,
+                       const QStringList &postBehaviors, bool rearm) {
+        ActionTransitionRule r;
+        r.trigger            = trigger;
+        r.after_ms_key       = afterKey;
+        r.periodic_ms_key    = periodicKey;
+        r.chance_percent_key = chanceKey;
+        r.to                 = to;
+        r.behaviors          = behaviors;
+        r.post_behaviors     = postBehaviors;
+        r.rearm_on_interaction = rearm;
+        return r;
+    };
+
+    ActionStateSpec stand;
+    stand.id = Act::Id::Stand;
+    stand.on_enter = { QStringLiteral("end_playful") };
+    stand.transitions.append(makeRule(
+        QStringLiteral("idle_to_move"), QStringLiteral("stand_to_move_wait_ms"),
+        QString(), QString(), Act::Id::Move, {}, { QStringLiteral("random_walk") }, true));
+    m_actionTopology.states.insert(stand.id, stand);
+
+    ActionStateSpec move;
+    move.id = Act::Id::Move;
+    move.transitions.append(makeRule(
+        QStringLiteral("move_to_sleep"), QStringLiteral("move_to_sleep_wait_ms"),
+        QString(), QString(), Act::Id::Sleeping, { QStringLiteral("halt_move") }, {}, true));
+    move.transitions.append(makeRule(
+        QStringLiteral("sit_detection"), QStringLiteral("move_to_sit_wait_ms"),
+        QStringLiteral("sit_detection_interval_ms"), QStringLiteral("sit_trigger_chance_percent"),
+        QString(), { QStringLiteral("allow_sit") }, {}, true));
+    move.transitions.append(makeRule(
+        QStringLiteral("playful_detection"), QStringLiteral("move_to_playful_wait_ms"),
+        QStringLiteral("playful_detection_interval_ms"), QStringLiteral("playful_trigger_chance_percent"),
+        QString(), { QStringLiteral("start_playful") }, {}, false));
+    m_actionTopology.states.insert(move.id, move);
+
+    ActionStateSpec sleeping;
+    sleeping.id = Act::Id::Sleeping;
+    sleeping.enter_hint = QStringLiteral("text_go_to_sleep");
+    sleeping.on_enter = { QStringLiteral("end_playful") };
+    m_actionTopology.states.insert(sleeping.id, sleeping);
+
+    ActionStateSpec angry;
+    angry.id = Act::Id::Angry;
+    angry.enter_hint = QStringLiteral("text_angry");
+    angry.on_enter = { QStringLiteral("end_playful") };
+    angry.transitions.append(makeRule(
+        QStringLiteral("angry_recover"), QStringLiteral("angry_duration_ms"),
+        QString(), QString(), QString(), { QStringLiteral("angry_recover") }, {}, false));
+    m_actionTopology.states.insert(angry.id, angry);
+
+    for (const QString &sitId : { Act::Id::Sitting_1, Act::Id::Sitting_2 }) {
+        ActionStateSpec sitting;
+        sitting.id = sitId;
+        sitting.on_enter = { QStringLiteral("end_playful") };
+        sitting.transitions.append(makeRule(
+            QStringLiteral("sit_monitor"), QString(),
+            QStringLiteral("sit_monitor_interval_ms"), QString(),
+            QString(), { QStringLiteral("sit_monitor_check") }, {}, false));
+        sitting.transitions.append(makeRule(
+            QStringLiteral("sit_timeout"), QStringLiteral("sit_mode_duration_ms"),
+            QString(), QString(), Act::Id::Move, {}, { QStringLiteral("random_walk") }, false));
+        m_actionTopology.states.insert(sitting.id, sitting);
+    }
+}
+
+// =============================================
+// v4: state_transitions JSON section (merge-per-state over defaults)
+// =============================================
+void ProfileManager::parseStateTransitions(const QJsonObject &obj) {
+    if (!obj.contains("states") || !obj["states"].isObject()) return;
+
+    const QJsonObject states = obj["states"].toObject();
+    for (auto it = states.begin(); it != states.end(); ++it) {
+        if (!it.value().isObject()) continue;
+        const QJsonObject so = it.value().toObject();
+
+        ActionStateSpec spec;
+        spec.id                = it.key();
+        spec.frame_interval_ms = safeInt(so, "frame_interval_ms", -1);
+        spec.enter_hint        = safeString(so, "enter_hint", QString());
+        spec.menu_label        = safeString(so, "menu_label", QString());
+
+        auto readStringList = [](const QJsonObject &o, const QString &key) {
+            QStringList out;
+            if (o.contains(key) && o[key].isArray()) {
+                const QJsonArray arr = o[key].toArray();
+                for (const QJsonValue &v : arr)
+                    if (v.isString()) out.append(v.toString());
+            }
+            return out;
+        };
+        spec.on_enter = readStringList(so, QStringLiteral("on_enter"));
+
+        if (so.contains("transitions") && so["transitions"].isArray()) {
+            const QJsonArray arr = so["transitions"].toArray();
+            for (const QJsonValue &v : arr) {
+                if (!v.isObject()) continue;
+                const QJsonObject ro = v.toObject();
+                ActionTransitionRule r;
+                r.trigger            = safeString(ro, "trigger", QStringLiteral("rule"));
+                r.after_ms           = safeInt(ro, "after_ms", -1);
+                r.after_ms_key       = safeString(ro, "after_ms_key", QString());
+                r.periodic_ms        = safeInt(ro, "periodic_ms", -1);
+                r.periodic_ms_key    = safeString(ro, "periodic_ms_key", QString());
+                r.chance_percent     = qBound(0, safeInt(ro, "chance_percent", 100), 100);
+                r.chance_percent_key = safeString(ro, "chance_percent_key", QString());
+                r.to                 = safeString(ro, "to", QString());
+                r.behaviors          = readStringList(ro, QStringLiteral("behaviors"));
+                r.post_behaviors     = readStringList(ro, QStringLiteral("post_behaviors"));
+                r.rearm_on_interaction = safeBool(ro, "rearm_on_interaction", true);
+                spec.transitions.append(r);
+            }
+        }
+
+        m_actionTopology.states.insert(spec.id, spec);
+    }
+}
+
+// =============================================
+// v4: perception JSON section
+// =============================================
+void ProfileManager::parsePerception(const QJsonObject &o) {
+    m_perception.enabled = safeBool(o, "enabled", m_perception.enabled);
+    m_perception.foreground_poll_ms =
+        qBound(250, safeInt(o, "foreground_poll_ms", m_perception.foreground_poll_ms), 600000);
 }

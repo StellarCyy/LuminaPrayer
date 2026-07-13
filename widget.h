@@ -14,9 +14,12 @@
 class QPaintEvent;
 class QContextMenuEvent;
 class QPropertyAnimation;
+class QThread;
 class ConfigManager;
 class SpriteResource;
 class PlatformHAL;
+class ActionStateMachine;
+class PerceptionBus;
 class AudioManager;
 class Playmate;
 class HardwareManager;
@@ -41,7 +44,8 @@ public:
 
     // Public API (used by DragFilter, main.cpp)
     void stopWalking();
-    void showActAnimation(RoleAct k);
+    void showActAnimation(RoleAct k);          // legacy enum wrapper
+    void enterAction(const QString &actionId); // v4 string-keyed state entry
     void showFromTray();
     void startRandomWalk();
     void resetIdleTimer();
@@ -91,6 +95,14 @@ private:
     void toggleStandFormWithHalo();
     void applyCurrentForm();
 
+    // v4 data-driven state machine
+    void setupActionMachine();
+    void onMachineTransition(const QString &to, const QStringList &postBehaviors);
+
+    // v4 perception bus (worker-thread lifecycle)
+    void startPerception();
+    void stopPerception();
+
     // Behavior
     void findAndSitOnWindow();
     void triggerAngryAttack();
@@ -136,9 +148,14 @@ private:
     AudioManager    *m_audio;
     HardwareManager *m_hardware;
     EffectManager   *m_breathFx;
+    ActionStateMachine *m_actionMachine;
+    PerceptionBus   *m_perception;        // lives on m_perceptionThread
+    QThread         *m_perceptionThread;
+    QString          m_perceivedWindowTitle;   // GUI-thread cache of bus output
 
     // -- Character state --
-    RoleAct  cur_role_act;
+    RoleAct  cur_role_act;      // enum view (legacy consumers; custom ids map to Stand)
+    QString  cur_action_id;     // v4 source of truth for the active action
     QString  cur_role_pix;
     bool     show_character;
 
@@ -164,17 +181,12 @@ private:
     bool allow_sit_try;
 
     // -- Timers --
+    // (state-transition timers live in ActionStateMachine since v4)
     QTimer  *frame_timer;
     QTimer  *clock_timer;
     QTimer  *clock_display_timer;
-    QTimer  *idle_timer;
-    QTimer  *sleep_timer;
-    QTimer  *sit_entry_timer;
     QTimer  *click_reset_timer;
-    QTimer  *sit_monitor_timer;
-    QTimer  *sit_duration_timer;
     QTimer  *stand_shake_timer;
-    QTimer  *playful_entry_timer;
     QTimer  *playful_duration_timer;
     QTimer  *playmate_chase_timer;
     QTimer  *auto_sing_timer;
@@ -194,8 +206,6 @@ private:
     // -- Interaction state --
     int      click_count;
     bool     playful_mode_active;
-    bool     sit_detection_started;
-    bool     playful_detection_started;
     bool     is_stand_shaking;
     QPoint   stand_shake_origin;
     int      stand_shake_remaining_steps;

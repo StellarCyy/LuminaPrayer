@@ -1,6 +1,6 @@
 # LuminaPrayer 项目文档
 
-> 最后更新：2026-04-27
+> 最后更新：2026-07-13（v4 核心重构：数据驱动状态机 + 环境感知总线）
 > 构建环境：Qt 6.8.3 + MSVC2022 (x64) + CMake + Ninja
 
 ---
@@ -13,16 +13,18 @@ LuminaPrayer 是一个基于 Qt6 Widgets 的**桌面宠物应用**。角色以�
 
 ## 2. 功能总览
 
-### 2.1 角色状态与动画
-- 六种动作状态：`Stand`、`Move`、`Sleeping`、`Angry`、`Sitting_1`、`Sitting_2`（枚举定义于 `roleact.h`）
-- **双形态**：Primary / Alternate 可独立配置每种动作的精灵图，菜单切换时播放光晕过渡动画
-- 帧动画由 `frame_timer`（默认 100ms）驱动，`SpriteResource` 统一缓存
+### 2.1 角色状态与动画（v4：数据驱动）
+- 动作状态以**字符串 id** 为准：`stand`、`move`、`sleeping`、`angry`、`sitting_1`、`sitting_2`（常量 `Act::Id` 与 `RoleAct` 枚举反射定义于 `roleact.h`）
+- 状态转移由 `ActionStateMachine` 运行时引擎执行，拓扑来自 `character.json → state_transitions`（缺省时使用内置等价默认拓扑）；入口 `Widget::enterAction(actionId)`，`showActAnimation(RoleAct)` 保留为枚举兼容包装
+- **双形态**：`solyn` / `stardaughter`（`CharacterForm` 键控），每形态的动作精灵为通用字符串键 map；`move` 为方向型动作（left/right 帧打包）；菜单切换时播放光晕过渡动画
+- 帧动画由 `frame_timer`（默认 100ms，可被状态 spec 的 `frame_interval_ms` 覆盖）驱动，`SpriteResource` 统一缓存
 
 ### 2.2 自动行为
 - **随机行走**：正弦曲线轨迹 + 屏幕边缘 clamp
 - **窗口停靠**：自动检测前台窗口顶部，飞行降落并播放坐下动画
 - **嬉戏模式**：追逐型伙伴角色（Playmate），概率触发，定时自动退出
-- **空闲转睡眠**：长时间空闲后自动切换为 `Sleeping`
+- **空闲转睡眠**：长时间空闲后自动切换为 `sleeping`
+- 以上触发时机/概率全部由 `state_transitions` 转移规则（两阶段定时 + 概率掷点）数据驱动，见 §5.3
 
 ### 2.3 交互
 - **拖拽/点击**：`DragFilter` 事件过滤器区分拖拽与点击（20px 阈值）
@@ -42,6 +44,7 @@ LuminaPrayer 是一个基于 Qt6 Widgets 的**桌面宠物应用**。角色以�
 ### 2.6 AI 对话
 - `DeepSeekChat`：DeepSeek API 异步调用，滑动窗口历史（默认 11 条），带 system prompt
 - `ChatBubbleWidget`：气泡窗口展示回复，自适应字号，发光效果，自动关闭
+- **环境感知注入（v4）**：发送前自动在用户消息前置 `[环境感知：用户当前的前台窗口是「…」]` 上下文（来源见 §2.12；注入用户消息而非 system prompt，避免历史重置）
 - API Key 在 INI 文件中以 XOR+Base64 混淆存储（`obf:` 前缀），向后兼容明文
 
 ### 2.7 养成属性系统
@@ -63,7 +66,13 @@ LuminaPrayer 是一个基于 Qt6 Widgets 的**桌面宠物应用**。角色以�
 - 渲染结果通过 `QImage` 回传至 `Widget::paintEvent` 合成
 
 ### 2.11 角色下方文字提示
-- 各场景切换时短暂显示对应提示图（`text_ok.png`、`text_can_sing.png`、`text_go_to_sleep.png` 等）
+- 各场景切换时短暂显示对应提示图（`text_ok.png`、`text_can_sing.png`、`text_go_to_sleep.png` 等）；提示图 key 由状态 spec 的 `enter_hint` 字段声明
+
+### 2.12 环境感知总线（v4）
+- `PerceptionBus` 运行于独立 `QThread`（`Widget::startPerception()/stopPerception()` 管理生命周期），周期轮询前台窗口标题
+- `PlatformHAL::foregroundWindowTitle()` 过滤本进程窗口（宠物/对话框/棋盘）；空标题时保留上一个有效外部标题
+- 标题变化经跨线程队列信号送达 GUI 线程缓存（`Widget::m_perceivedWindowTitle`）；当前消费者：AI 对话上下文注入
+- 配置：`character.json → perception { enabled, foreground_poll_ms }`；`reloadProfile` 时自动重启/停止
 
 ---
 
@@ -75,7 +84,9 @@ main.cpp                    应用入口 + 系统托盘 + 结构化文件日志
   └── Widget (widget.h/cpp)  顶层协调器: 状态机、定时器调度、绘制、菜单
         ├── ConfigManager      运行时配置读写 (lumina_config.ini)
         ├── ProfileManager     角色配置文件解析 (character.json) — 单例
-        ├── SpriteResource     精灵资源加载 + 像素缓存 + 双形态 action map
+        ├── ActionStateMachine v4 数据驱动状态机 (state_transitions 拓扑执行器)
+        ├── PerceptionBus      v4 环境感知总线 (独立 QThread, 前台窗口轮询)
+        ├── SpriteResource     精灵资源加载 + 像素缓存 + 字符串键 action map
         ├── PlatformHAL        平台抽象层: Windows 窗口检测/监控 (隔离 #ifdef)
         ├── DragFilter         鼠标拖拽 + 点击检测事件过滤器
         ├── AudioManager       音频播放封装 (QMediaPlayer + 错误恢复)
@@ -93,7 +104,7 @@ main.cpp                    应用入口 + 系统托盘 + 结构化文件日志
         └── SettingsDialog     参数设置对话框
 
 fontutils.h                 共享 CJK 衬线字体解析工具
-roleact.h                   共享状态枚举 RoleAct
+roleact.h                   RoleAct 枚举 + Act::Id 字符串动作常量 + 双向反射
 shaders/                    GLSL 着色器 (breathe.vert / breathe.frag)
 ```
 
@@ -104,11 +115,13 @@ shaders/                    GLSL 着色器 (breathe.vert / breathe.frag)
 | 文件 | 职责 | 关键类/结构体 |
 |------|------|---------------|
 | `main.cpp` | 应用入口、系统托盘、结构化日志 (`luminaLogHandler`) | — |
-| `roleact.h` | `RoleAct` 枚举 (Stand/Move/Sleeping/Angry/Sitting_1/Sitting_2) | `Act::RoleAct` |
+| `roleact.h` | `RoleAct` 枚举 + 字符串动作 id 常量 + 枚举↔id 反射 | `Act::RoleAct`, `Act::Id`, `actionIdFor()/roleActFromId()` |
 | `fontutils.h` | CJK 衬线字体解析，带 fallback 链 | `resolveCJKSerifFont()` |
-| `profilemanager.h/cpp` | 从 `character.json` 加载角色配置，单例 | `ProfileManager`, 所有 `*Profile` 结构体 |
+| `profilemanager.h/cpp` | 从 `character.json` 加载角色配置，单例；含内置默认状态拓扑 | `ProfileManager`, 所有 `*Profile` 结构体 |
+| `actionstatemachine.h/cpp` | **v4** 运行时状态机：每规则一个 QTimer、两阶段触发、命名行为回调 | `ActionStateMachine`, `ActionStateSpec`, `ActionTransitionRule` |
+| `perceptionbus.h/cpp` | **v4** 环境感知：工作线程轮询前台窗口标题 | `PerceptionBus` |
 | `configmanager.h/cpp` | 运行时配置 (INI)，种子来自 ProfileManager | `ConfigManager`, `BehaviorConfig` |
-| `spriteresource.h/cpp` | 双形态精灵加载，QPixmap 缓存 | `SpriteResource` |
+| `spriteresource.h/cpp` | 通用字符串键动作精灵加载（含方向打包），QPixmap 缓存 | `SpriteResource` |
 | `platformhal.h/cpp` | Windows 窗口检测、屏幕 clamp | `PlatformHAL`, `SittableWindow` |
 | `dragfilter.h/cpp` | 事件过滤器：拖拽/点击/抖动 | `DragFilter` |
 | `audiomanager.h/cpp` | QMediaPlayer 封装，错误恢复 | `AudioManager` |
@@ -135,7 +148,7 @@ shaders/                    GLSL 着色器 (breathe.vert / breathe.frag)
 | `imgs.qrc` | 所有图片资源（角色、特效、食物卡、提示文字等） |
 | `audio.qrc` | 所有音频资源（语音、哼歌、愤怒音效） |
 | `shaders.qrc` | GLSL 着色器文件 |
-| `character.json` | 角色配置（精灵、动画、行为、UI、五子棋等全部参数） |
+| `character.json` | 角色配置（精灵、动画、行为、状态机拓扑、感知、UI、五子棋等全部参数），POST_BUILD 自动同步到输出目录 |
 | `lumina_config.ini` | 运行时持久化配置（用户调整的参数） |
 
 ---
@@ -151,7 +164,7 @@ shaders/                    GLSL 着色器 (breathe.vert / breathe.frag)
 | `meta` | — | 角色名、版本号 |
 | `window` | `WindowProfile` | 窗口尺寸、拳头尺寸 |
 | `sprites` | `SpritesProfile` | 精灵路径（双形态）、提示图路径 |
-| `sprites.forms.primary/alternate` | `FormDef` | 每种形态的每种动作精灵 pattern + count |
+| `sprites.forms.<form>` | `FormDef` | 每形态通用字符串键动作精灵条目（`move_left`/`move_right` 自动打包为方向型 `move`） |
 | `audio` | `AudioProfile` | 音效路径 + 语音菜单项 |
 | `animation` | `AnimationProfile` | 所有动画时间/尺寸参数 (>25 项) |
 | `behavior` | `BehaviorProfile` | 行为逻辑参数 (>30 项) |
@@ -160,6 +173,8 @@ shaders/                    GLSL 着色器 (breathe.vert / breathe.frag)
 | `status_system` | `StatusSystemProfile` | 属性面板开关、延迟 |
 | `gomoku` | `GomokuProfile` | 五子棋棋盘/特效参数 |
 | `food_menu` | `FoodMenuProfile` | 食物列表 + 图片 pattern |
+| `state_transitions` | `ActionTopologyProfile` | **v4** 状态机拓扑（见 §5.3） |
+| `perception` | `PerceptionProfile` | **v4** 环境感知开关 + 轮询间隔 |
 
 **所有数值类参数在 parse 阶段均有 `qBound` 范围校验**，防止 JSON 注入无效值。
 
@@ -178,7 +193,7 @@ shaders/                    GLSL 着色器 (breathe.vert / breathe.frag)
 
 ```ini
 [form]
-use_alternate=false
+character_form=0
 
 [behavior]
 stand_to_move_wait_ms=25000
@@ -213,6 +228,8 @@ ai_system_prompt=...
 pos=@Point(100 100)
 ```
 
+> 旧键 `form/use_alternate`（bool）加载时自动兼容迁移为 `character_form`（`CharacterForm` 枚举 int）。
+
 **扩展提示**：新增可配置参数的完整流程：
 1. `BehaviorConfig` 结构体中添加字段（含默认值）
 2. `ConfigManager::seedFromProfile()` 从 ProfileManager 读入
@@ -221,6 +238,43 @@ pos=@Point(100 100)
 5. `ConfigManager::validate()` 中添加范围校验
 6. `SettingsDialog::buildUI()` 中添加 UI 控件
 7. `SettingsDialog::result()` 中回填到结构体
+
+### 5.3 state_transitions — v4 数据驱动状态机拓扑
+
+`ProfileManager::applyDefaultTopology()` 内置与旧硬编码定时器图**完全等价**的默认拓扑；`character.json → state_transitions.states` 按状态整体覆盖默认定义（merge-per-state）。
+
+状态 spec 格式：
+
+```json
+"move": {
+  "enter_hint": "text_xxx",      // 进入时底部提示图 key 或资源路径（可选）
+  "frame_interval_ms": 100,      // 覆盖全局帧间隔（可选）
+  "menu_label": "…",             // 预留字段：已解析但暂未接入菜单自动生成
+  "on_enter": ["end_playful"],   // 进入时行为链
+  "transitions": [ … ]          // 转移规则数组
+}
+```
+
+转移规则字段（两阶段定时模型：单次延迟 → 周期复查 + 概率掷点）：
+
+| 字段 | 说明 |
+|---|---|
+| `trigger` | 规则名（日志标识） |
+| `after_ms` / `after_ms_key` | 阶段1 单次延迟：字面值 / 配置键（键优先，arm 时解析） |
+| `periodic_ms` / `periodic_ms_key` | 阶段2 周期复查间隔（缺省则阶段1 到期直接触发） |
+| `chance_percent` / `chance_percent_key` | 每次触发的概率掷点（默认 100） |
+| `behaviors` | 转移前行为链；任一返回 `false` 即**否决**本次转移（周期规则继续复查） |
+| `to` | 目标状态 id（空 = 仅执行行为，不转移） |
+| `post_behaviors` | 转移完成后行为链（如 `random_walk`） |
+| `rearm_on_interaction` | 用户交互（`resetIdleTimer`）时是否重置回阶段1 |
+
+已注册行为（`Widget::setupActionMachine`）：`end_playful`、`halt_move`、`random_walk`、`allow_sit`、`start_playful`、`sit_monitor_check`、`angry_recover`。
+
+引擎契约（`ActionStateMachine`）：
+- 仅激活状态的规则持有 QTimer；`enterState` = disarm 旧规则 → 执行 `on_enter` → arm 新规则
+- 行为回调可重入 `enterState`（规则按值拷贝 + `deleteLater` 拆除，触发中打断安全）
+- `rearm()`：交互重置（旧 `resetIdleTimer` 语义）；`refreshAll()`：设置保存后用新时长重臂全部规则；`stopAll()`：五子棋等临时冻结（不改变当前状态 id）
+- 时长/概率键解析顺序：`lumina_config.ini` 用户值 → `character.json behavior` 常量（resolver 在 `Widget::setupActionMachine`）
 
 ---
 
@@ -348,14 +402,16 @@ glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, img.
 
 | 需求 | 修改位置 |
 |------|----------|
-| **新增角色动作** | `roleact.h` 添加枚举 → `FormDef` 添加 `SpriteEntry` → `parseFormDef` 添加解析 → `SpriteResource::loadAll` 添加加载 → `Widget::showActAnimation` 添加分支 |
-| **新增角色形态** | `SpritesProfile` 添加 `FormDef` 字段 → `parseSprites` 添加解析 → `SpriteResource` 添加第三套 map |
+| **新增角色动作（v4）** | `character.json`：`sprites.forms.<form>` 添加精灵条目 + `state_transitions.states` 添加状态 spec，**无需改 C++**（自定义 id 的 `RoleAct` 视图回退为 Stand 语义）；需要新行为时在 `Widget::setupActionMachine` 注册回调 |
+| **修改状态转移时机/概率** | `character.json → state_transitions` 对应规则的字面值或 `*_key` 指向的配置项（见 §5.3） |
+| **新增感知源** | `PerceptionBus::poll()` 添加采集 → 新信号 → `Widget` 订阅并缓存 |
+| **新增角色形态** | `roleact.h` `CharacterForm` 添加枚举值 → `profilemanager.cpp` `kFormNameMap` 添加 JSON 键→枚举映射（`forms` 为 `QMap<CharacterForm, FormDef>`，加载与菜单循环切换已通用化） |
 | **新增精灵帧动画** | `character.json` 中对应 `count` 改为 >1 → 确保所有帧图片已加入 `imgs.qrc` |
 | **新增菜单项** | `Widget::initMenu()` |
 | **新增配置参数** | 见 §5.2 扩展提示（7 步流程） |
 | **新增食物** | `character.json → food_menu.items` 添加条目 + 对应图片加入 `imgs.qrc` |
 | **新增语音** | `character.json → audio.voice_menu` 添加条目 + `.mp3` 文件加入 `audio.qrc` |
-| **新增提示图** | 图片加入 `imgs.qrc` → `SpritesProfile` 添加路径字段 → `parseHints` 添加解析 → `Widget::showBottomHintTransient` 调用 |
+| **新增提示图** | 命名 key：图片加入 `imgs.qrc` → `SpritesProfile` 添加字段 → `parseHints`/`hintPath` 添加映射；**或**在状态 spec 的 `enter_hint` 直接写资源路径（未知 key 形似路径时原样透传，零 C++） |
 | **新增平台特性** | `PlatformHAL`（所有 `#ifdef Q_OS_WIN` 集中于此） |
 | **绘制逻辑** | `Widget::paintEvent()` |
 | **新增 AI 能力** | `DeepSeekChat` 修改 system prompt / 新增工具调用 |
@@ -367,15 +423,9 @@ glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, img.
 
 | 定时器 | 用途 | 类型 |
 |--------|------|------|
-| `frame_timer` | 帧动画推进 | 周期 100ms |
-| `idle_timer` | 空闲→随机行走 | 单次 |
-| `sleep_timer` | 行走→睡眠 | 单次 |
-| `sit_entry_timer` | 行走→坐下检测延迟 | 单次 |
-| `sit_monitor_timer` | 坐下中窗口监控 | 周期 100ms |
-| `sit_duration_timer` | 坐下持续时间 | 单次 |
+| `frame_timer` | 帧动画推进 | 周期 100ms（状态 spec 可覆盖） |
 | `stand_shake_timer` | 点击抖动步进 | 周期（动态间隔） |
 | `click_reset_timer` | 连击计数重置 | 单次 |
-| `playful_entry_timer` | 嬉戏模式检测延迟 | 单次 |
 | `playful_duration_timer` | 嬉戏持续时间 | 单次 |
 | `playmate_chase_timer` | 伙伴追逐物理帧 | 周期 16ms |
 | `auto_sing_timer` | 自动哼歌间隔 | 单次（随机） |
@@ -383,23 +433,28 @@ glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, img.
 | `clock_display_timer` | 时钟叠层自动隐藏 | 单次 |
 | `bottom_hint_timer` | 底部提示图自动隐藏 | 单次 |
 | `m_hoverTimer` | 悬停→状态面板显示延迟 | 单次 |
+| `m_starPhysicsTimer` | 星星物理帧（碰撞/反弹） | 周期 16ms |
+| `m_autoThrowStarTimer` | 自动放出星星 | 周期 |
+
+> **v4**：原 `idle_timer`、`sleep_timer`、`sit_entry_timer`、`sit_monitor_timer`、`sit_duration_timer`、`playful_entry_timer` 六个状态定时器已删除，迁入 `ActionStateMachine`（每条转移规则一个 QTimer，仅激活状态持有）。
 
 ---
 
 ## 12. widget.cpp 内部辅助函数
 
-`widget.cpp` 文件顶部的匿名命名空间定义了 ProfileManager 快捷访问器（替代原来的 `#define` 宏）：
+`widget.cpp` 文件顶部定义了 file-scope inline 快捷访问器（替代原来的 `#define` 宏）：
 
 ```cpp
-namespace {
-static inline const BehaviorConfig& PB()  { return ProfileManager::instance()->behavior(); }
-static inline const SpriteConfig&  PS()  { return ProfileManager::instance()->sprites(); }
-static inline const AudioConfig&   PAU() { return ProfileManager::instance()->audio(); }
-static inline const GomokuConfig&  PG()  { return ProfileManager::instance()->gomoku(); }
-}
+static inline auto  PM()  { return ProfileManager::instance(); }
+static inline const AnimationProfile&   PA()  { return PM()->animation(); }
+static inline const BehaviorProfile&    PB()  { return PM()->behavior(); }
+static inline const WindowProfile&      PW()  { return PM()->window(); }
+static inline const SpritesProfile&     PS()  { return PM()->sprites(); }
+static inline const UIProfile&          PU()  { return PM()->ui(); }
+static inline const AudioProfile&       PAU() { return PM()->audio(); }
 ```
 
-调用方式：`PB().move_speed_px_per_sec`、`PS().role_display_size` 等。
+调用方式：`PB().move_speed_px_per_sec`、`PS().role_display_size`、`PM()->gomoku()` 等；运行时用户可调参数经 `cfg()`（`m_config->config()`）访问。
 
 ---
 
@@ -407,7 +462,7 @@ static inline const GomokuConfig&  PG()  { return ProfileManager::instance()->go
 
 1. **NOMINMAX** — `platformhal.h` 中 `#include <windows.h>` 前定义 `#define NOMINMAX`
 2. **边缘抖动修复** — `startRandomWalk()` 起点/终点 clamp、wave amplitude margin、每帧输出 clamp
-3. **Playful/Sitting 概率触发** — 两阶段定时器：单次等待 → 周期检测，概率触发
+3. **Playful/Sitting 概率触发** — 两阶段规则：单次等待 → 周期检测 + 概率掷点；v4 起由 `ActionStateMachine` 规则承载（`after_ms_key` + `periodic_ms_key` + `chance_percent_key`），语义不得回退
 4. **Move 动画帧逻辑** — 方向帧数量 = `paths.size()/2`，左帧区 `[0..N)`，右帧区 `[N..2N)`
 5. **点击/拖拽检测** — `DragFilter` 20px 阈值区分拖拽与点击；Stand 下 500ms 抖动
 6. **非模态对话框** — `openTalkInput` 和 `openSettingsDialog` 均使用 `open()` 而非 `exec()`，避免嵌套事件循环
@@ -470,6 +525,10 @@ const QPixmap& SpriteResource::nullPixmap() {
 | 14 | MED | sendMessageSync 添加 orphan rollback | `deepseekchat.cpp` |
 | 15 | MED | main.cpp 异常路径 flush/close 日志文件 | `main.cpp` |
 | 16 | MED | API key INI 存储 XOR+Base64 混淆 | `configmanager.cpp` |
+| 17 | HIGH | **v4**：六个硬编码状态定时器 → 数据驱动 `ActionStateMachine` | `actionstatemachine.h/cpp`(新), `widget.h/cpp`, `profilemanager.h/cpp`, `roleact.h` |
+| 18 | MED | **v4**：`PerceptionBus` 独立线程 + AI 上下文注入 + 本进程窗口过滤 | `perceptionbus.h/cpp`(新), `platformhal.cpp`, `widget.h/cpp` |
+| 19 | MED | 星星回收 `delete` → `deleteLater()`（重入安全） | `widget.cpp` |
+| 20 | MED | `character.json` POST_BUILD 自动同步到输出目录（消除配置漂移） | `CMakeLists.txt` |
 
 ---
 
@@ -491,6 +550,10 @@ const QPixmap& SpriteResource::nullPixmap() {
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Multimedia OpenGL Concurrent Network)
 # Windows 额外链接:
 target_link_libraries(LuminaPrayer PRIVATE user32)
+# character.json 构建后自动复制到可执行文件目录（运行时从 applicationDirPath 加载）:
+add_custom_command(TARGET LuminaPrayer POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/character.json $<TARGET_FILE_DIR:LuminaPrayer>/character.json)
 ```
 
 ### 命令行构建

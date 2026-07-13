@@ -13,6 +13,7 @@ SpriteResource::SpriteResource(QObject *parent)
 
 void SpriteResource::loadAll() {
     m_formMaps.clear();
+    m_directional.clear();
     m_cache.clear();
 
     const SpritesProfile &sp = ProfileManager::instance()->sprites();
@@ -21,25 +22,42 @@ void SpriteResource::loadAll() {
 
     // --- Load all registered forms generically ---
     // First form loaded becomes the "base"; subsequent forms inherit from it then override.
-    QMap<RoleAct, QList<QString>> baseMap;
+    QMap<QString, QList<QString>> baseMap;
 
     for (auto it = sp.forms.constBegin(); it != sp.forms.constEnd(); ++it) {
         const CharacterForm form = it.key();
         const FormDef &fd = it.value();
 
         // Start from base form (first form's data) or empty
-        QMap<RoleAct, QList<QString>> &actMap = m_formMaps[form];
+        QMap<QString, QList<QString>> &actMap = m_formMaps[form];
         if (!baseMap.isEmpty() && actMap.isEmpty())
             actMap = baseMap;
 
-        addResource(actMap, RoleAct::Stand,    fd.stand.pattern,      fd.stand.count,      roleSize);
-        addMoveResource(actMap, fd.move_left.pattern, fd.move_right.pattern, fd.move_left.count);
-        addResource(actMap, RoleAct::Sleeping, fd.sleeping.pattern,   fd.sleeping.count,   roleSize);
-        addResource(actMap, RoleAct::Angry,    fd.angry.pattern,      fd.angry.count,      roleSize);
-        if (!fd.sitting_1.pattern.isEmpty())
-            addResource(actMap, RoleAct::Sitting_1, fd.sitting_1.pattern, fd.sitting_1.count);
-        if (!fd.sitting_2.pattern.isEmpty())
-            addResource(actMap, RoleAct::Sitting_2, fd.sitting_2.pattern, fd.sitting_2.count);
+        // Pass 1: pack "<id>_left"/"<id>_right" pairs into directional action "<id>"
+        QSet<QString> consumed;
+        for (auto e = fd.entries.constBegin(); e != fd.entries.constEnd(); ++e) {
+            const QString &key = e.key();
+            if (!key.endsWith(QLatin1String("_left"))) continue;
+            const QString actionId = key.chopped(5);
+            const QString rightKey = actionId + QLatin1String("_right");
+            if (!fd.has(rightKey)) continue;
+            const SpriteEntry &left = e.value();
+            const SpriteEntry right = fd.entry(rightKey);
+            if (left.pattern.isEmpty() || right.pattern.isEmpty()) continue;
+            if (addDirectionalResource(actMap, actionId, left.pattern, right.pattern, left.count))
+                m_directional.insert(actionId);
+            consumed.insert(key);
+            consumed.insert(rightKey);
+        }
+
+        // Pass 2: plain actions (any id; empty patterns skipped defensively)
+        for (auto e = fd.entries.constBegin(); e != fd.entries.constEnd(); ++e) {
+            if (consumed.contains(e.key())) continue;
+            const SpriteEntry &entry = e.value();
+            if (entry.pattern.isEmpty()) continue;
+            addResource(actMap, e.key(), entry.pattern, entry.count,
+                        entry.scale ? roleSize : QSize());
+        }
 
         // Snapshot first form as base for inheritance
         if (baseMap.isEmpty())
@@ -61,15 +79,30 @@ void SpriteResource::loadAll() {
     cachePixmap(sp.hint_text_go_to_sleep);
     cachePixmap(sp.hint_text_start_listening);
     cachePixmap(sp.hint_text_angry);
+
+    // --- v4: topology enter-hint pixmaps (covers custom raw-path hints) ---
+    const auto &topo = ProfileManager::instance()->actionTopology();
+    for (auto it = topo.states.constBegin(); it != topo.states.constEnd(); ++it) {
+        const QString path = sp.hintPath(it->enter_hint);
+        if (!path.isEmpty()) cachePixmap(path);
+    }
 }
 
-QList<QString> SpriteResource::actionPaths(RoleAct act, CharacterForm form) const {
+QList<QString> SpriteResource::actionPaths(const QString &actionId, CharacterForm form) const {
+    if (m_formMaps.isEmpty()) return {};
+
     auto it = m_formMaps.constFind(form);
-    if (it != m_formMaps.constEnd())
-        return it->value(act);
-    // Fallback: first available form
-    if (!m_formMaps.isEmpty())
-        return m_formMaps.first().value(act);
+    if (it == m_formMaps.constEnd())
+        it = m_formMaps.constBegin();   // graceful: unknown form -> first form
+
+    QList<QString> paths = it->value(actionId);
+    if (!paths.isEmpty()) return paths;
+
+    // Graceful degradation for unknown/asset-less actions: stand, then any non-empty.
+    paths = it->value(Act::Id::Stand);
+    if (!paths.isEmpty()) return paths;
+    for (auto a = it->constBegin(); a != it->constEnd(); ++a)
+        if (!a.value().isEmpty()) return a.value();
     return {};
 }
 
@@ -81,7 +114,7 @@ QList<QString> SpriteResource::alternateMovePaths(CharacterForm currentForm) con
     ++it;
     if (it == m_formMaps.constEnd())
         it = m_formMaps.constBegin();
-    return it->value(RoleAct::Move);
+    return it->value(Act::Id::Move);
 }
 
 const QPixmap& SpriteResource::pixmap(const QString &path) const {
@@ -96,8 +129,8 @@ bool SpriteResource::hasPixmap(const QString &path) const {
     return m_cache.contains(path);
 }
 
-void SpriteResource::addResource(QMap<RoleAct, QList<QString>> &targetMap,
-                                  RoleAct act, const QString &pattern, int count,
+void SpriteResource::addResource(QMap<QString, QList<QString>> &targetMap,
+                                  const QString &actionId, const QString &pattern, int count,
                                   const QSize &targetSize) {
     QList<QString> paths;
     for (int i = 0; i < count; ++i) {
@@ -112,12 +145,13 @@ void SpriteResource::addResource(QMap<RoleAct, QList<QString>> &targetMap,
             m_cache.insert(finalPath, p);
         }
     }
-    targetMap.insert(act, paths);
+    targetMap.insert(actionId, paths);
 }
 
-void SpriteResource::addMoveResource(QMap<RoleAct, QList<QString>> &targetMap,
-                                      const QString &leftPattern, const QString &rightPattern,
-                                      int frameCount) {
+bool SpriteResource::addDirectionalResource(QMap<QString, QList<QString>> &targetMap,
+                                            const QString &actionId,
+                                            const QString &leftPattern, const QString &rightPattern,
+                                            int frameCount) {
     QList<QString> leftPaths, rightPaths;
     for (int i = 0; i < frameCount; ++i) {
         QString leftPath  = QString(leftPattern).replace(QLatin1String("%d"), QString::number(i));
@@ -144,7 +178,7 @@ void SpriteResource::addMoveResource(QMap<RoleAct, QList<QString>> &targetMap,
     }
 
     QList<QString> paths;
-    const int validCount = std::min(leftPaths.size(), rightPaths.size());
+    const int validCount = static_cast<int>(std::min(leftPaths.size(), rightPaths.size()));
     if (validCount > 0) {
         for (int i = 0; i < validCount; ++i) paths.append(leftPaths[i]);
         for (int i = 0; i < validCount; ++i) paths.append(rightPaths[i]);
@@ -153,7 +187,9 @@ void SpriteResource::addMoveResource(QMap<RoleAct, QList<QString>> &targetMap,
     } else {
         paths = rightPaths;
     }
-    targetMap.insert(RoleAct::Move, paths);
+    targetMap.insert(actionId, paths);
+    // Only a true [left|right] packed list may be resolved directionally.
+    return validCount > 0;
 }
 
 void SpriteResource::cachePixmap(const QString &path) {

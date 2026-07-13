@@ -10,24 +10,63 @@
 #include <QJsonObject>
 
 // =============================================
-// Sprite entry: pattern + frame count
+// Sprite entry: pattern + frame count (+ scale-to-role-size intent)
 // =============================================
 struct SpriteEntry {
     QString pattern;
     int count = 1;
+    bool scale = true;   // scale frames to role_display_size when cached
 };
 
 // =============================================
-// Form definition: all action sprites for one form
+// Form definition: generic string-keyed action sprites for one form.
+// Keys are arbitrary action-ids; "<id>_left" / "<id>_right" pairs are
+// auto-packed into one directional action "<id>" by SpriteResource.
 // =============================================
 struct FormDef {
-    SpriteEntry stand;
-    SpriteEntry move_left;
-    SpriteEntry move_right;
-    SpriteEntry sleeping;
-    SpriteEntry angry;
-    SpriteEntry sitting_1;
-    SpriteEntry sitting_2;
+    QMap<QString, SpriteEntry> entries;
+
+    void set(const QString &key, const SpriteEntry &e) { entries.insert(key, e); }
+    SpriteEntry entry(const QString &key) const { return entries.value(key); }
+    bool has(const QString &key) const { return entries.contains(key); }
+};
+
+// =============================================
+// Action topology: data-driven runtime state machine (v4)
+// =============================================
+struct ActionTransitionRule {
+    QString trigger;                 // diagnostic name
+    int     after_ms = -1;           // literal initial delay (-1 = unset)
+    QString after_ms_key;            // BehaviorConfig/BehaviorProfile key override
+    int     periodic_ms = -1;        // literal periodic re-check interval (-1 = none)
+    QString periodic_ms_key;
+    int     chance_percent = 100;    // roll on every fire
+    QString chance_percent_key;
+    QString to;                      // target state id (empty = stay / behaviors only)
+    QStringList behaviors;           // run BEFORE transition; any false vetoes `to`
+    QStringList post_behaviors;      // run AFTER the state was applied
+    bool    rearm_on_interaction = true;  // restarted by user interaction (rearm)
+};
+
+struct ActionStateSpec {
+    QString id;
+    int     frame_interval_ms = -1;  // per-state frame rate (-1 = global default)
+    QString enter_hint;              // hint key (see SpritesProfile::hintPath) or raw path
+    QString menu_label;              // non-empty = auto-added to context menu
+    QStringList on_enter;            // behaviors run when the state is entered
+    QList<ActionTransitionRule> transitions;
+};
+
+struct ActionTopologyProfile {
+    QMap<QString, ActionStateSpec> states;   // keyed by action-id
+};
+
+// =============================================
+// Perception bus profile (v4 environment awareness)
+// =============================================
+struct PerceptionProfile {
+    bool enabled            = true;
+    int  foreground_poll_ms = 1500;
 };
 
 // =============================================
@@ -66,6 +105,11 @@ struct SpritesProfile {
         static const FormDef s_empty;
         return forms.isEmpty() ? s_empty : forms.first();
     }
+    // Graceful degradation: unknown form falls back to first registered form.
+    CharacterForm sanitizeForm(CharacterForm f) const {
+        if (forms.contains(f) || forms.isEmpty()) return f;
+        return forms.firstKey();
+    }
     // Convenience: get pull path with fallback
     QString pullPath(CharacterForm f) const {
         return pull.value(f);
@@ -82,6 +126,19 @@ struct SpritesProfile {
     QString hint_text_go_to_sleep     = QStringLiteral(":/text/text_go_to_sleep.png");
     QString hint_text_start_listening = QStringLiteral(":/text/text_start_listening.png");
     QString hint_text_angry           = QStringLiteral(":/text/text_angry1.png");
+
+    // Resolve a topology hint key to a pixmap path. Unknown keys that look
+    // like resource/file paths pass through verbatim (custom-state hints).
+    QString hintPath(const QString &key) const {
+        if (key.isEmpty()) return {};
+        if (key == QLatin1String("text_ok"))              return hint_text_ok;
+        if (key == QLatin1String("text_can_sing"))        return hint_text_can_sing;
+        if (key == QLatin1String("text_go_to_sleep"))     return hint_text_go_to_sleep;
+        if (key == QLatin1String("text_start_listening")) return hint_text_start_listening;
+        if (key == QLatin1String("text_angry"))           return hint_text_angry;
+        if (key.startsWith(QLatin1Char(':')) || key.contains(QLatin1Char('/'))) return key;
+        return {};
+    }
 };
 
 struct AudioProfile {
@@ -239,6 +296,8 @@ public:
     const StatusSystemProfile& statusSystem() const { return m_statusSystem; }
     const GomokuProfile&   gomoku()    const { return m_gomoku; }
     const FoodMenuProfile& foodMenu()  const { return m_foodMenu; }
+    const ActionTopologyProfile& actionTopology() const { return m_actionTopology; }
+    const PerceptionProfile& perception() const { return m_perception; }
 
     // Current loaded file path
     const QString& currentPath() const { return m_currentPath; }
@@ -266,6 +325,9 @@ private:
     void parseStatusSystem(const QJsonObject &obj);
     void parseGomoku(const QJsonObject &obj);
     void parseFoodMenu(const QJsonObject &obj);
+    void parseStateTransitions(const QJsonObject &obj);
+    void parsePerception(const QJsonObject &obj);
+    void applyDefaultTopology();
 
     static QColor jsonArrayToColor(const QJsonArray &arr, const QColor &fallback);
 
@@ -282,6 +344,8 @@ private:
     StatusSystemProfile m_statusSystem;
     GomokuProfile    m_gomoku;
     FoodMenuProfile  m_foodMenu;
+    ActionTopologyProfile m_actionTopology;
+    PerceptionProfile m_perception;
 };
 
 #endif // PROFILEMANAGER_H

@@ -39,6 +39,10 @@ public:
 
     static QPoint clampToScreen(const QPoint &topLeft, const QSize &windowSize);
 
+    // v4 perception: title of the current foreground window (empty when
+    // unavailable or on unsupported platforms).
+    static QString foregroundWindowTitle();
+
 private:
 #ifdef Q_OS_WIN
     HWND m_targetHwnd = nullptr;
